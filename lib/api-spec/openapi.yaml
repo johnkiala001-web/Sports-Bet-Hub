@@ -1,22 +1,35 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: KialaBet Sportsbook API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: matches
+    description: Sports matches and odds
+  - name: bets
+    description: Betting operations
+  - name: wallet
+    description: Wallet and transactions
+  - name: jackpots
+    description: Jackpot operations
+  - name: users
+    description: User profile and dashboard
+  - name: admin
+    description: Admin operations
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +37,572 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # AUTH
+  /auth/register:
+    post:
+      operationId: registerUser
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+
+  /auth/login:
+    post:
+      operationId: loginUser
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+
+  # MATCHES
+  /matches:
+    get:
+      operationId: listMatches
+      tags: [matches]
+      summary: List matches with optional filters
+      parameters:
+        - name: sport
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [upcoming, live, finished]
+        - name: league
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of matches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Match"
+
+  /matches/live:
+    get:
+      operationId: getLiveMatches
+      tags: [matches]
+      summary: Get live matches with current scores
+      responses:
+        "200":
+          description: Live matches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Match"
+
+  /matches/featured:
+    get:
+      operationId: getFeaturedMatches
+      tags: [matches]
+      summary: Get featured/popular matches for homepage
+      responses:
+        "200":
+          description: Featured matches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Match"
+
+  /matches/{matchId}:
+    get:
+      operationId: getMatch
+      tags: [matches]
+      summary: Get a single match with all odds markets
+      parameters:
+        - name: matchId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Match detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchDetail"
+        "404":
+          description: Not found
+
+  /leagues:
+    get:
+      operationId: listLeagues
+      tags: [matches]
+      summary: List available leagues
+      responses:
+        "200":
+          description: Leagues
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/League"
+
+  # BETS
+  /bets:
+    get:
+      operationId: listBets
+      tags: [bets]
+      summary: Get user's betting history
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, won, lost, cashed_out]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Bet list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Bet"
+    post:
+      operationId: placeBet
+      tags: [bets]
+      summary: Place a single or accumulator bet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BetInput"
+      responses:
+        "201":
+          description: Bet placed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bet"
+        "400":
+          description: Invalid bet or insufficient balance
+
+  /bets/{betId}/cashout:
+    post:
+      operationId: cashoutBet
+      tags: [bets]
+      summary: Cash out a pending bet
+      parameters:
+        - name: betId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Cash out success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bet"
+
+  /bets/summary:
+    get:
+      operationId: getBetSummary
+      tags: [bets]
+      summary: Get user's betting summary stats
+      responses:
+        "200":
+          description: Betting summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BetSummary"
+
+  # WALLET
+  /wallet:
+    get:
+      operationId: getWallet
+      tags: [wallet]
+      summary: Get user wallet balance
+      responses:
+        "200":
+          description: Wallet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+
+  /wallet/deposit:
+    post:
+      operationId: depositFunds
+      tags: [wallet]
+      summary: Demo deposit (no real payment)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DepositInput"
+      responses:
+        "200":
+          description: Deposit simulated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+
+  /wallet/transactions:
+    get:
+      operationId: listTransactions
+      tags: [wallet]
+      summary: Get transaction history
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+
+  # JACKPOTS
+  /jackpots:
+    get:
+      operationId: listJackpots
+      tags: [jackpots]
+      summary: List active jackpots
+      responses:
+        "200":
+          description: Jackpots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Jackpot"
+
+  /jackpots/{jackpotId}:
+    get:
+      operationId: getJackpot
+      tags: [jackpots]
+      summary: Get jackpot detail with fixtures
+      parameters:
+        - name: jackpotId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Jackpot detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Jackpot"
+
+  # USER DASHBOARD
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [users]
+      summary: Get user dashboard summary
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+
+  /profile:
+    get:
+      operationId: getProfile
+      tags: [users]
+      summary: Get user profile
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    patch:
+      operationId: updateProfile
+      tags: [users]
+      summary: Update user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [users]
+      summary: Get user notifications
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+
+  /notifications/{notificationId}/read:
+    post:
+      operationId: markNotificationRead
+      tags: [users]
+      summary: Mark notification as read
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked read
+
+  /bonuses:
+    get:
+      operationId: listBonuses
+      tags: [users]
+      summary: Get user bonuses
+      responses:
+        "200":
+          description: Bonuses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Bonus"
+
+  # ADMIN
+  /admin/login:
+    post:
+      operationId: adminLogin
+      tags: [admin]
+      summary: Admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Admin logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get platform revenue analytics
+      responses:
+        "200":
+          description: Admin stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /admin/users:
+    get:
+      operationId: listAdminUsers
+      tags: [admin]
+      summary: List all users (admin)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Users list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+
+  /admin/users/{userId}/suspend:
+    post:
+      operationId: suspendUser
+      tags: [admin]
+      summary: Suspend/unsuspend a user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuspendInput"
+      responses:
+        "200":
+          description: User suspension updated
+
+  /admin/matches:
+    post:
+      operationId: createMatch
+      tags: [admin]
+      summary: Create a new match
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MatchInput"
+      responses:
+        "201":
+          description: Match created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Match"
+
+  /admin/matches/{matchId}:
+    patch:
+      operationId: updateMatch
+      tags: [admin]
+      summary: Update match odds or status
+      parameters:
+        - name: matchId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MatchUpdate"
+      responses:
+        "200":
+          description: Match updated
+
+  /admin/jackpots:
+    post:
+      operationId: createJackpot
+      tags: [admin]
+      summary: Create a jackpot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JackpotInput"
+      responses:
+        "201":
+          description: Jackpot created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Jackpot"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +613,488 @@ components:
       required:
         - status
 
+    # AUTH SCHEMAS
+    RegisterInput:
+      type: object
+      required: [username, email, password, phone]
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        phone:
+          type: string
+        referralCode:
+          type: ["string", "null"]
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+
+    User:
+      type: object
+      required: [id, username, email, phone, role, isSuspended, createdAt]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        role:
+          type: string
+          enum: [user, admin]
+        isSuspended:
+          type: boolean
+        referralCode:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    ProfileUpdate:
+      type: object
+      properties:
+        username:
+          type: string
+        phone:
+          type: string
+        avatarUrl:
+          type: ["string", "null"]
+
+    # MATCH SCHEMAS
+    Match:
+      type: object
+      required: [id, homeTeam, awayTeam, sport, league, status, kickoff, homeOdds, drawOdds, awayOdds]
+      properties:
+        id:
+          type: integer
+        homeTeam:
+          type: string
+        awayTeam:
+          type: string
+        sport:
+          type: string
+          enum: [football, basketball, tennis, esports]
+        league:
+          type: string
+        leagueId:
+          type: ["integer", "null"]
+        status:
+          type: string
+          enum: [upcoming, live, finished]
+        kickoff:
+          type: string
+        homeScore:
+          type: ["integer", "null"]
+        awayScore:
+          type: ["integer", "null"]
+        minute:
+          type: ["integer", "null"]
+        homeOdds:
+          type: number
+        drawOdds:
+          type: number
+        awayOdds:
+          type: number
+        hasOddsBoost:
+          type: boolean
+        isFeatured:
+          type: boolean
+
+    MatchDetail:
+      type: object
+      required: [id, homeTeam, awayTeam, sport, league, status, kickoff, markets]
+      properties:
+        id:
+          type: integer
+        homeTeam:
+          type: string
+        awayTeam:
+          type: string
+        sport:
+          type: string
+        league:
+          type: string
+        status:
+          type: string
+        kickoff:
+          type: string
+        homeScore:
+          type: ["integer", "null"]
+        awayScore:
+          type: ["integer", "null"]
+        minute:
+          type: ["integer", "null"]
+        markets:
+          type: array
+          items:
+            $ref: "#/components/schemas/OddsMarket"
+
+    OddsMarket:
+      type: object
+      required: [id, name, selections]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        selections:
+          type: array
+          items:
+            $ref: "#/components/schemas/OddsSelection"
+
+    OddsSelection:
+      type: object
+      required: [id, label, odds]
+      properties:
+        id:
+          type: integer
+        label:
+          type: string
+        odds:
+          type: number
+        hasBoost:
+          type: boolean
+
+    League:
+      type: object
+      required: [id, name, sport, country]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        sport:
+          type: string
+        country:
+          type: string
+        logoUrl:
+          type: ["string", "null"]
+
+    MatchInput:
+      type: object
+      required: [homeTeam, awayTeam, sport, league, kickoff, homeOdds, drawOdds, awayOdds]
+      properties:
+        homeTeam:
+          type: string
+        awayTeam:
+          type: string
+        sport:
+          type: string
+        league:
+          type: string
+        kickoff:
+          type: string
+        homeOdds:
+          type: number
+        drawOdds:
+          type: number
+        awayOdds:
+          type: number
+        isFeatured:
+          type: boolean
+
+    MatchUpdate:
+      type: object
+      properties:
+        homeOdds:
+          type: number
+        drawOdds:
+          type: number
+        awayOdds:
+          type: number
+        status:
+          type: string
+        homeScore:
+          type: ["integer", "null"]
+        awayScore:
+          type: ["integer", "null"]
+        minute:
+          type: ["integer", "null"]
+
+    # BET SCHEMAS
+    BetInput:
+      type: object
+      required: [stake, selections]
+      properties:
+        stake:
+          type: number
+        selections:
+          type: array
+          items:
+            $ref: "#/components/schemas/BetSelectionInput"
+
+    BetSelectionInput:
+      type: object
+      required: [matchId, market, label, odds]
+      properties:
+        matchId:
+          type: integer
+        market:
+          type: string
+        label:
+          type: string
+        odds:
+          type: number
+
+    Bet:
+      type: object
+      required: [id, stake, totalOdds, potentialWin, status, type, createdAt, selections]
+      properties:
+        id:
+          type: integer
+        stake:
+          type: number
+        totalOdds:
+          type: number
+        potentialWin:
+          type: number
+        actualWin:
+          type: ["number", "null"]
+        status:
+          type: string
+          enum: [pending, won, lost, cashed_out]
+        type:
+          type: string
+          enum: [single, accumulator]
+        createdAt:
+          type: string
+        selections:
+          type: array
+          items:
+            $ref: "#/components/schemas/BetSelection"
+
+    BetSelection:
+      type: object
+      required: [id, matchId, homeTeam, awayTeam, market, label, odds, result]
+      properties:
+        id:
+          type: integer
+        matchId:
+          type: integer
+        homeTeam:
+          type: string
+        awayTeam:
+          type: string
+        market:
+          type: string
+        label:
+          type: string
+        odds:
+          type: number
+        result:
+          type: string
+          enum: [pending, won, lost]
+
+    BetSummary:
+      type: object
+      required: [totalBets, totalWon, totalLost, totalPending, totalStaked, totalWinnings, winRate]
+      properties:
+        totalBets:
+          type: integer
+        totalWon:
+          type: integer
+        totalLost:
+          type: integer
+        totalPending:
+          type: integer
+        totalStaked:
+          type: number
+        totalWinnings:
+          type: number
+        winRate:
+          type: number
+
+    # WALLET SCHEMAS
+    Wallet:
+      type: object
+      required: [id, userId, balance, bonusBalance, currency]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        balance:
+          type: number
+        bonusBalance:
+          type: number
+        currency:
+          type: string
+
+    DepositInput:
+      type: object
+      required: [amount, method]
+      properties:
+        amount:
+          type: number
+        method:
+          type: string
+          enum: [mpesa, airtel, card, demo]
+
+    Transaction:
+      type: object
+      required: [id, type, amount, status, description, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [deposit, withdrawal, bet, win, bonus, refund]
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [pending, completed, failed]
+        description:
+          type: string
+        createdAt:
+          type: string
+
+    # JACKPOT SCHEMAS
+    Jackpot:
+      type: object
+      required: [id, name, type, poolAmount, ticketPrice, status, drawDate, totalTickets, fixtures]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+          enum: [mega, midweek]
+        poolAmount:
+          type: number
+        ticketPrice:
+          type: number
+        status:
+          type: string
+          enum: [open, closed, drawn]
+        drawDate:
+          type: string
+        totalTickets:
+          type: integer
+        fixtures:
+          type: array
+          items:
+            $ref: "#/components/schemas/Match"
+
+    JackpotInput:
+      type: object
+      required: [name, type, poolAmount, ticketPrice, drawDate]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        poolAmount:
+          type: number
+        ticketPrice:
+          type: number
+        drawDate:
+          type: string
+
+    # DASHBOARD SCHEMA
+    Dashboard:
+      type: object
+      required: [wallet, betSummary, recentBets, activeBonuses, pendingBets]
+      properties:
+        wallet:
+          $ref: "#/components/schemas/Wallet"
+        betSummary:
+          $ref: "#/components/schemas/BetSummary"
+        recentBets:
+          type: array
+          items:
+            $ref: "#/components/schemas/Bet"
+        activeBonuses:
+          type: array
+          items:
+            $ref: "#/components/schemas/Bonus"
+        pendingBets:
+          type: integer
+
+    # NOTIFICATION SCHEMA
+    Notification:
+      type: object
+      required: [id, title, message, isRead, createdAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        message:
+          type: string
+        isRead:
+          type: boolean
+        type:
+          type: string
+        createdAt:
+          type: string
+
+    # BONUS SCHEMA
+    Bonus:
+      type: object
+      required: [id, type, amount, isUsed, expiresAt, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [welcome, deposit, referral, promo]
+        amount:
+          type: number
+        isUsed:
+          type: boolean
+        expiresAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    # ADMIN SCHEMAS
+    AdminStats:
+      type: object
+      required: [totalUsers, totalBets, totalRevenue, totalPayouts, activeBets, newUsersToday, revenueToday]
+      properties:
+        totalUsers:
+          type: integer
+        totalBets:
+          type: integer
+        totalRevenue:
+          type: number
+        totalPayouts:
+          type: number
+        activeBets:
+          type: integer
+        newUsersToday:
+          type: integer
+        revenueToday:
+          type: number
+
+    SuspendInput:
+      type: object
+      required: [suspended]
+      properties:
+        suspended:
+          type: boolean
+        reason:
+          type: ["string", "null"]

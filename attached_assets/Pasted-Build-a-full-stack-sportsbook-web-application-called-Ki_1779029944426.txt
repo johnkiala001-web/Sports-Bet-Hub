@@ -1,0 +1,168 @@
+Build a full-stack sportsbook web application called KialaBet inspired by modern African betting platforms like Betika and SportPesa, but with unique branding, UI, and codebase.
+
+PROJECT GOAL:
+Create an MVP sportsbook platform with demo betting functionality and disabled real payments for now.
+
+TECH STACK:
+- Frontend: React + Vite
+- Backend: Node.js + Express
+- Database: PostgreSQL
+- ORM: Prisma
+- Authentication: JWT + bcrypt
+- Realtime updates: Socket.io
+- State management: Context API
+- Styling: Tailwind CSS
+- Icons: Lucide React
+
+DESIGN:
+- Premium dark mode interface
+- Main colors:
+   - dark background (#0B0F19)
+   - green accent (#00C853)
+   - white text
+- Mobile-first responsive design
+- Smooth animations
+- Clean sportsbook cards
+- Sticky mobile bottom navigation
+
+PAGES REQUIRED:
+
+1. Homepage
+- Hero banner
+- Live matches
+- Upcoming matches
+- Popular leagues
+- Jackpot section
+- Promotions carousel
+- Casino teaser section
+
+2. Authentication
+- Register page
+- Login page
+- Forgot password page
+- OTP verification UI
+
+3. Sportsbook
+- Football
+- Basketball
+- Tennis
+- Esports
+- Match details page
+- Odds markets
+- Bet slip sidebar
+- Single bet
+- Multi bet accumulator
+
+4. Live Betting
+- Live matches page
+- Dynamic odds updates
+- Match timers
+- Score display
+
+5. User Dashboard
+- Wallet balance
+- Betting history
+- Bonus balance
+- Profile settings
+- Notifications
+- Referral earnings
+
+6. Wallet (Demo Mode)
+- Deposit page with:
+   - M-Pesa Coming Soon
+   - Airtel Money Coming Soon
+   - Card Coming Soon
+- Disabled withdrawal page
+- Demo transaction history
+- Simulated wallet balance
+
+7. Jackpot
+- Mega Jackpot
+- Midweek Jackpot
+- Countdown timer
+- Progress tracker
+- Jackpot fixtures list
+
+8. Casino Section
+- Aviator-style crash game demo
+- Virtual games placeholder
+- Casino lobby UI
+
+9. Admin Dashboard
+- Admin login
+- Manage users
+- Suspend users
+- Edit odds
+- Manage matches
+- Manage jackpots
+- Manage bonuses
+- Payment settings toggle
+- Revenue analytics
+- Logs
+
+DATABASE MODELS:
+Create tables for:
+- users
+- wallets
+- bets
+- transactions
+- matches
+- odds
+- jackpots
+- bonuses
+- referrals
+- notifications
+- admins
+
+FEATURES:
+- Demo wallet balance on signup
+- Place bets using demo balance
+- Auto calculate winnings
+- Betting history
+- Cashout simulation
+- Favorite teams
+- Search matches
+- Odds boost badges
+- Promo codes
+
+SECURITY:
+- Password hashing
+- JWT auth
+- Protected admin routes
+- Input validation
+- Rate limiting
+- Session handling
+
+PAYMENTS:
+IMPORTANT:
+Do not integrate real payment gateways.
+Keep all payment methods in placeholder/demo mode.
+Create architecture for future integration:
+- M-Pesa
+- Airtel Money
+- Card payments
+
+SEED DATA:
+Generate sample:
+- football matches
+- odds
+- users
+- jackpots
+- transaction history
+
+DEPLOYMENT:
+- Prepare project for deployment on Replit
+- Environment variables support
+- Production-ready folder structure
+
+EXTRA:
+- Fast loading
+- SEO friendly
+- Error pages
+- Loading skeletons
+- Toast notifications
+
+Brand name everywhere: KialaBet
+Tagline: Bet Smarter, Win Bigger
+
+Build complete working MVP with clean code and folder structure.
