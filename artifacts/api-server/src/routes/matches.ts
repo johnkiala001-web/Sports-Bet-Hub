@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, and, inArray, notInArray } from "drizzle-orm";
 import { db, matchesTable, leaguesTable, oddsMarketsTable, oddsSelectionsTable } from "@workspace/db";
 import { ListMatchesQueryParams } from "@workspace/api-zod";
-import { syncFixtures } from "../lib/footballData";
+import { syncFixtures } from "../lib/apiFootball";
 import { requireAdmin } from "../lib/auth";
 
 const router: IRouter = Router();

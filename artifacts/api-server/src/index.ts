@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { startFixtureSync } from "./lib/footballData";
+import { startFixtureSync } from "./lib/apiFootball";
 
 const rawPort = process.env["PORT"];
 
