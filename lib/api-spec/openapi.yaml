@@ -720,6 +720,9 @@ components:
           type: boolean
         isFeatured:
           type: boolean
+        marketsCount:
+          type: integer
+          description: Total number of betting markets available for this match
 
     MatchDetail:
       type: object

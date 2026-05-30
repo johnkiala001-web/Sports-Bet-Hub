@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, inArray, notInArray } from "drizzle-orm";
+import { eq, and, inArray, notInArray, sql } from "drizzle-orm";
 import { db, matchesTable, leaguesTable, oddsMarketsTable, oddsSelectionsTable } from "@workspace/db";
 import { ListMatchesQueryParams } from "@workspace/api-zod";
 import { syncFixtures } from "../lib/apiFootball";
@@ -7,7 +7,7 @@ import { requireAdmin } from "../lib/auth";
 
 const router: IRouter = Router();
 
-function formatMatch(m: typeof matchesTable.$inferSelect) {
+function formatMatch(m: typeof matchesTable.$inferSelect, marketsCount = 0) {
   return {
     id: m.id,
     homeTeam: m.homeTeam,
@@ -25,7 +25,23 @@ function formatMatch(m: typeof matchesTable.$inferSelect) {
     awayOdds: parseFloat(m.awayOdds as string),
     hasOddsBoost: m.hasOddsBoost,
     isFeatured: m.isFeatured,
+    marketsCount,
   };
+}
+
+async function attachMarketsCounts(rows: (typeof matchesTable.$inferSelect)[]) {
+  if (rows.length === 0) return rows.map(r => formatMatch(r));
+  const ids = rows.map(r => r.id);
+  const counts = await db
+    .select({
+      matchId: oddsMarketsTable.matchId,
+      count: sql<number>`cast(count(*) as int)`,
+    })
+    .from(oddsMarketsTable)
+    .where(inArray(oddsMarketsTable.matchId, ids))
+    .groupBy(oddsMarketsTable.matchId);
+  const countMap = new Map(counts.map(c => [c.matchId, c.count]));
+  return rows.map(r => formatMatch(r, countMap.get(r.id) ?? 0));
 }
 
 router.get("/matches", async (req, res): Promise<void> => {
@@ -42,7 +58,6 @@ router.get("/matches", async (req, res): Promise<void> => {
   if (status) {
     conditions.push(eq(matchesTable.status, status));
   } else {
-    // By default exclude cancelled matches
     conditions.push(notInArray(matchesTable.status, ["cancelled"]));
   }
 
@@ -54,7 +69,7 @@ router.get("/matches", async (req, res): Promise<void> => {
     .limit(Number(limit))
     .offset(Number(offset));
 
-  res.json(rows.map(formatMatch));
+  res.json(await attachMarketsCounts(rows));
 });
 
 router.get("/matches/live", async (_req, res): Promise<void> => {
@@ -64,7 +79,7 @@ router.get("/matches/live", async (_req, res): Promise<void> => {
     .where(eq(matchesTable.status, "live"))
     .orderBy(matchesTable.kickoff);
 
-  res.json(rows.map(formatMatch));
+  res.json(await attachMarketsCounts(rows));
 });
 
 router.get("/matches/featured", async (_req, res): Promise<void> => {

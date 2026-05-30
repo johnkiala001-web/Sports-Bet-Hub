@@ -1,4 +1,5 @@
-import { db, matchesTable } from "@workspace/db";
+import { db, matchesTable, oddsMarketsTable, oddsSelectionsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { logger } from "./logger";
 
 const BASE_URL = "https://v3.football.api-sports.io";
@@ -224,6 +225,321 @@ function placeholderOdds(fixtureId: number, leagueId: number): { home: number; d
   return { home, draw, away };
 }
 
+// Deterministic seeded value between 0-1 for market odds generation
+function rnd(fixtureId: number, marketIdx: number, selIdx: number): number {
+  const x = Math.sin(fixtureId * 127.1 + marketIdx * 31.7 + selIdx * 7.3) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+function o(val: number): string {
+  return Math.max(1.05, val).toFixed(2);
+}
+
+// Build all 40 market definitions for a given match
+function buildMarkets(fixtureId: number, h: number, d: number, a: number) {
+  // Implied probs (normalize so they sum to ~1)
+  const ph = 1 / h, pd = 1 / d, pa = 1 / a;
+  const total = ph + pd + pa;
+  const nph = ph / total, npd = pd / total, npa = pa / total;
+
+  // helper: convert probability to odds with small random spread
+  const prob2odds = (p: number, mIdx: number, sIdx: number) => {
+    const spread = 0.85 + rnd(fixtureId, mIdx, sIdx) * 0.05;
+    return parseFloat(o((spread / Math.max(0.01, p))));
+  };
+
+  const markets: Array<{ name: string; selections: Array<{ label: string; odds: string }> }> = [];
+  let m = 0;
+
+  // 1. Match Result (1X2)
+  markets.push({ name: "Match Result", selections: [
+    { label: "1", odds: o(h) },
+    { label: "X", odds: o(d) },
+    { label: "2", odds: o(a) },
+  ]});
+  m++;
+
+  // 2. Double Chance (combined probability = sum of two outcomes)
+  markets.push({ name: "Double Chance", selections: [
+    { label: "1X", odds: prob2odds(nph + npd, m, 0).toFixed(2) },
+    { label: "12", odds: prob2odds(nph + npa, m, 1).toFixed(2) },
+    { label: "X2", odds: prob2odds(npd + npa, m, 2).toFixed(2) },
+  ]});
+  m++;
+
+  // 3. Draw No Bet
+  markets.push({ name: "Draw No Bet", selections: [
+    { label: "Home", odds: prob2odds(nph / (nph + npa), m, 0).toFixed(2) },
+    { label: "Away", odds: prob2odds(npa / (nph + npa), m, 1).toFixed(2) },
+  ]});
+  m++;
+
+  // 4-7. Over/Under goals
+  for (const [line, baseOverP] of [[0.5, 0.93], [1.5, 0.77], [2.5, 0.52], [3.5, 0.33]] as [number, number][]) {
+    const overP = baseOverP + (rnd(fixtureId, m, 0) - 0.5) * 0.08;
+    markets.push({ name: `Over/Under ${line}`, selections: [
+      { label: `Over ${line}`,  odds: prob2odds(overP, m, 0).toFixed(2) },
+      { label: `Under ${line}`, odds: prob2odds(1 - overP, m, 1).toFixed(2) },
+    ]});
+    m++;
+  }
+
+  // 8. Both Teams To Score
+  const bttsP = 0.48 + rnd(fixtureId, m, 0) * 0.12;
+  markets.push({ name: "Both Teams To Score", selections: [
+    { label: "Yes", odds: prob2odds(bttsP, m, 0).toFixed(2) },
+    { label: "No",  odds: prob2odds(1 - bttsP, m, 1).toFixed(2) },
+  ]});
+  m++;
+
+  // 9. Correct Score (top 9 outcomes)
+  const scores = ["0-0","1-0","0-1","1-1","2-0","0-2","2-1","1-2","2-2"];
+  const scoreBaseOdds = [8.5, 7.2, 9.0, 6.5, 9.5, 11.0, 8.0, 10.0, 12.0];
+  markets.push({ name: "Correct Score", selections: scores.map((s, i) => ({
+    label: s,
+    odds: parseFloat(o(scoreBaseOdds[i]! * (0.85 + rnd(fixtureId, m, i) * 0.3))).toFixed(2),
+  }))});
+  m++;
+
+  // 10. Half Time Result
+  markets.push({ name: "Half Time Result", selections: [
+    { label: "1", odds: prob2odds(nph * 1.05, m, 0).toFixed(2) },
+    { label: "X", odds: prob2odds(0.42 + rnd(fixtureId, m, 1) * 0.08, m, 1).toFixed(2) },
+    { label: "2", odds: prob2odds(npa * 1.05, m, 2).toFixed(2) },
+  ]});
+  m++;
+
+  // 11. Half Time / Full Time (6 most common combos)
+  const htftLabels = ["1/1","1/X","X/1","X/X","X/2","2/2"];
+  const htftBase   = [0.22, 0.05, 0.12, 0.14, 0.10, 0.18];
+  markets.push({ name: "HT/FT", selections: htftLabels.map((l, i) => ({
+    label: l,
+    odds: prob2odds((htftBase[i]! + rnd(fixtureId, m, i) * 0.04) * (nph > npa ? 1 : 0.9), m, i).toFixed(2),
+  }))});
+  m++;
+
+  // 12. Odd/Even Goals
+  markets.push({ name: "Odd/Even Goals", selections: [
+    { label: "Odd",  odds: (1.85 + rnd(fixtureId, m, 0) * 0.1).toFixed(2) },
+    { label: "Even", odds: (1.90 + rnd(fixtureId, m, 1) * 0.1).toFixed(2) },
+  ]});
+  m++;
+
+  // 13. First Goal
+  markets.push({ name: "First Goal", selections: [
+    { label: "Home",    odds: prob2odds(nph * 1.1, m, 0).toFixed(2) },
+    { label: "Away",    odds: prob2odds(npa * 1.1, m, 1).toFixed(2) },
+    { label: "No Goal", odds: (9.0 + rnd(fixtureId, m, 2) * 2.0).toFixed(2) },
+  ]});
+  m++;
+
+  // 14. Last Goal
+  markets.push({ name: "Last Goal", selections: [
+    { label: "Home", odds: prob2odds(nph * 1.05, m, 0).toFixed(2) },
+    { label: "Away", odds: prob2odds(npa * 1.05, m, 1).toFixed(2) },
+  ]});
+  m++;
+
+  // 15. Asian Handicap
+  const ahLines = ["-1.5","-1.0","-0.5","0","+0.5","+1.0"];
+  markets.push({ name: "Asian Handicap", selections: ahLines.map((line, i) => ({
+    label: `${i < 3 ? "Home" : "Away"} ${line}`,
+    odds: (1.82 + rnd(fixtureId, m, i) * 0.22).toFixed(2),
+  }))});
+  m++;
+
+  // 16. European Handicap
+  markets.push({ name: "European Handicap", selections: [
+    { label: "Home -1", odds: prob2odds(nph * 0.75, m, 0).toFixed(2) },
+    { label: "Draw",    odds: (3.2 + rnd(fixtureId, m, 1) * 0.5).toFixed(2) },
+    { label: "Away +1", odds: prob2odds((npa + npd * 0.4), m, 2).toFixed(2) },
+  ]});
+  m++;
+
+  // 17. Clean Sheet Home
+  const csHomeP = 0.30 + rnd(fixtureId, m, 0) * 0.12;
+  markets.push({ name: "Clean Sheet - Home", selections: [
+    { label: "Yes", odds: prob2odds(csHomeP, m, 0).toFixed(2) },
+    { label: "No",  odds: prob2odds(1 - csHomeP, m, 1).toFixed(2) },
+  ]});
+  m++;
+
+  // 18. Clean Sheet Away
+  const csAwayP = 0.25 + rnd(fixtureId, m, 0) * 0.12;
+  markets.push({ name: "Clean Sheet - Away", selections: [
+    { label: "Yes", odds: prob2odds(csAwayP, m, 0).toFixed(2) },
+    { label: "No",  odds: prob2odds(1 - csAwayP, m, 1).toFixed(2) },
+  ]});
+  m++;
+
+  // 19. Win To Nil Home
+  const wtnHomeP = nph * 0.40 + rnd(fixtureId, m, 0) * 0.05;
+  markets.push({ name: "Win To Nil - Home", selections: [
+    { label: "Yes", odds: prob2odds(wtnHomeP, m, 0).toFixed(2) },
+    { label: "No",  odds: prob2odds(1 - wtnHomeP, m, 1).toFixed(2) },
+  ]});
+  m++;
+
+  // 20. Win To Nil Away
+  const wtnAwayP = npa * 0.38 + rnd(fixtureId, m, 0) * 0.05;
+  markets.push({ name: "Win To Nil - Away", selections: [
+    { label: "Yes", odds: prob2odds(wtnAwayP, m, 0).toFixed(2) },
+    { label: "No",  odds: prob2odds(1 - wtnAwayP, m, 1).toFixed(2) },
+  ]});
+  m++;
+
+  // 21-22. Home Team Goals Over/Under
+  for (const [line, baseP] of [[0.5, 0.72], [1.5, 0.45]] as [number, number][]) {
+    const p = baseP + rnd(fixtureId, m, 0) * 0.07;
+    markets.push({ name: `Home Team Over/Under ${line}`, selections: [
+      { label: `Over ${line}`,  odds: prob2odds(p, m, 0).toFixed(2) },
+      { label: `Under ${line}`, odds: prob2odds(1 - p, m, 1).toFixed(2) },
+    ]});
+    m++;
+  }
+
+  // 23-24. Away Team Goals Over/Under
+  for (const [line, baseP] of [[0.5, 0.68], [1.5, 0.40]] as [number, number][]) {
+    const p = baseP + rnd(fixtureId, m, 0) * 0.07;
+    markets.push({ name: `Away Team Over/Under ${line}`, selections: [
+      { label: `Over ${line}`,  odds: prob2odds(p, m, 0).toFixed(2) },
+      { label: `Under ${line}`, odds: prob2odds(1 - p, m, 1).toFixed(2) },
+    ]});
+    m++;
+  }
+
+  // 25-26. Corners
+  for (const line of [8.5, 10.5]) {
+    const p = line === 8.5 ? 0.63 : 0.42;
+    const pv = p + rnd(fixtureId, m, 0) * 0.08;
+    markets.push({ name: `Corners Over/Under ${line}`, selections: [
+      { label: `Over ${line}`,  odds: prob2odds(pv, m, 0).toFixed(2) },
+      { label: `Under ${line}`, odds: prob2odds(1 - pv, m, 1).toFixed(2) },
+    ]});
+    m++;
+  }
+
+  // 27. Cards Over/Under
+  const cardP = 0.58 + rnd(fixtureId, m, 0) * 0.10;
+  markets.push({ name: "Cards Over/Under 3.5", selections: [
+    { label: "Over 3.5",  odds: prob2odds(cardP, m, 0).toFixed(2) },
+    { label: "Under 3.5", odds: prob2odds(1 - cardP, m, 1).toFixed(2) },
+  ]});
+  m++;
+
+  // 28. Next Goal
+  markets.push({ name: "Next Goal", selections: [
+    { label: "Home",    odds: prob2odds(nph * 1.05, m, 0).toFixed(2) },
+    { label: "No Goal", odds: (6.0 + rnd(fixtureId, m, 1) * 2.0).toFixed(2) },
+    { label: "Away",    odds: prob2odds(npa * 1.05, m, 2).toFixed(2) },
+  ]});
+  m++;
+
+  // 29. Exact Goals
+  const exactGoalProbs = [0.08, 0.20, 0.24, 0.22, 0.14, 0.12];
+  const exactGoalLabels = ["0 Goals","1 Goal","2 Goals","3 Goals","4 Goals","5+ Goals"];
+  markets.push({ name: "Exact Goals", selections: exactGoalLabels.map((l, i) => ({
+    label: l,
+    odds: prob2odds(exactGoalProbs[i]! + rnd(fixtureId, m, i) * 0.03, m, i).toFixed(2),
+  }))});
+  m++;
+
+  // 30-32. Multi Goals
+  for (const [label, p] of [["1-2", 0.40], ["2-3", 0.44], ["3-4", 0.35]] as [string, number][]) {
+    const pv = p + rnd(fixtureId, m, 0) * 0.05;
+    markets.push({ name: `Multi Goals ${label}`, selections: [
+      { label: "Yes", odds: prob2odds(pv, m, 0).toFixed(2) },
+      { label: "No",  odds: prob2odds(1 - pv, m, 1).toFixed(2) },
+    ]});
+    m++;
+  }
+
+  // 33-34. Race To Goals
+  for (const goals of [2, 3]) {
+    markets.push({ name: `Race To ${goals} Goals`, selections: [
+      { label: "Home",    odds: prob2odds(nph * 1.1, m, 0).toFixed(2) },
+      { label: "Neither", odds: (goals === 2 ? 3.5 : 5.5 + rnd(fixtureId, m, 1)).toFixed(2) },
+      { label: "Away",    odds: prob2odds(npa * 1.1, m, 2).toFixed(2) },
+    ]});
+    m++;
+  }
+
+  // 35. Second Half Result
+  markets.push({ name: "Second Half Result", selections: [
+    { label: "1", odds: prob2odds(nph * 1.08, m, 0).toFixed(2) },
+    { label: "X", odds: (2.4 + rnd(fixtureId, m, 1) * 0.3).toFixed(2) },
+    { label: "2", odds: prob2odds(npa * 1.08, m, 2).toFixed(2) },
+  ]});
+  m++;
+
+  // 36-37. Second Half Over/Under
+  for (const [line, baseP] of [[0.5, 0.75], [1.5, 0.48]] as [number, number][]) {
+    const p = baseP + rnd(fixtureId, m, 0) * 0.07;
+    markets.push({ name: `2nd Half Over/Under ${line}`, selections: [
+      { label: `Over ${line}`,  odds: prob2odds(p, m, 0).toFixed(2) },
+      { label: `Under ${line}`, odds: prob2odds(1 - p, m, 1).toFixed(2) },
+    ]});
+    m++;
+  }
+
+  // 38. Half Time Over/Under 1.5
+  const htOverP = 0.45 + rnd(fixtureId, m, 0) * 0.08;
+  markets.push({ name: "HT Over/Under 1.5", selections: [
+    { label: "Over 1.5",  odds: prob2odds(htOverP, m, 0).toFixed(2) },
+    { label: "Under 1.5", odds: prob2odds(1 - htOverP, m, 1).toFixed(2) },
+  ]});
+  m++;
+
+  // 39. Red Card in Match
+  const redP = 0.18 + rnd(fixtureId, m, 0) * 0.10;
+  markets.push({ name: "Red Card in Match", selections: [
+    { label: "Yes", odds: prob2odds(redP, m, 0).toFixed(2) },
+    { label: "No",  odds: prob2odds(1 - redP, m, 1).toFixed(2) },
+  ]});
+  m++;
+
+  // 40. Penalty Awarded
+  const penP = 0.28 + rnd(fixtureId, m, 0) * 0.10;
+  markets.push({ name: "Penalty Awarded", selections: [
+    { label: "Yes", odds: prob2odds(penP, m, 0).toFixed(2) },
+    { label: "No",  odds: prob2odds(1 - penP, m, 1).toFixed(2) },
+  ]});
+
+  return markets;
+}
+
+// Generate and persist all 40 markets for a match (idempotent — skips if already generated)
+async function generateMarketsForMatch(matchId: number, fixtureId: number, h: number, d: number, a: number): Promise<void> {
+  const existing = await db
+    .select({ id: oddsMarketsTable.id })
+    .from(oddsMarketsTable)
+    .where(eq(oddsMarketsTable.matchId, matchId))
+    .limit(1);
+
+  if (existing.length > 0) return; // already generated
+
+  const markets = buildMarkets(fixtureId, h, d, a);
+
+  for (const market of markets) {
+    const [inserted] = await db
+      .insert(oddsMarketsTable)
+      .values({ matchId, name: market.name })
+      .returning({ id: oddsMarketsTable.id });
+
+    if (!inserted) continue;
+
+    await db.insert(oddsSelectionsTable).values(
+      market.selections.map(s => ({
+        marketId: inserted.id,
+        matchId,
+        label: s.label,
+        odds: s.odds,
+        hasBoost: false,
+      }))
+    );
+  }
+}
+
 // Target league IDs set for fast lookup
 const TARGET_IDS = new Set(UNIQUE_LEAGUES.map(l => l.id));
 
@@ -284,7 +600,7 @@ export async function syncFixtures(): Promise<number> {
 
       const odds = placeholderOdds(f.fixture.id, f.league.id);
 
-      await db
+      const [row] = await db
         .insert(matchesTable)
         .values({
           externalId,
@@ -312,7 +628,12 @@ export async function syncFixtures(): Promise<number> {
             minute: status === "live" ? (f.fixture.status.elapsed ?? null) : null,
             updatedAt: new Date(),
           },
-        });
+        })
+        .returning({ id: matchesTable.id });
+
+      if (row) {
+        await generateMarketsForMatch(row.id, f.fixture.id, odds.home, odds.draw, odds.away);
+      }
 
       upserted++;
     } catch (err) {

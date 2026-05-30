@@ -7,8 +7,19 @@ interface MatchCardProps {
   match: Match;
 }
 
+function formatKickoff(kickoff: string): string {
+  const d = new Date(kickoff);
+  const day   = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year  = String(d.getFullYear()).slice(-2);
+  const hrs   = String(d.getHours()).padStart(2, "0");
+  const mins  = String(d.getMinutes()).padStart(2, "0");
+  return `${day}/${month}/${year}  ${hrs}:${mins}`;
+}
+
 export function MatchCard({ match }: MatchCardProps) {
   const isLive = match.status === "live";
+  const marketsCount = (match as Match & { marketsCount?: number }).marketsCount ?? 0;
 
   return (
     <Card className="bg-card border-border overflow-hidden hover:border-primary/50 transition-colors">
@@ -32,7 +43,7 @@ export function MatchCard({ match }: MatchCardProps) {
                   </>
                 ) : (
                   <span className="text-xs font-medium text-primary">
-                    {new Date(match.kickoff).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {formatKickoff(match.kickoff)}
                   </span>
                 )}
               </div>
@@ -50,9 +61,10 @@ export function MatchCard({ match }: MatchCardProps) {
             </div>
           </div>
         </Link>
+
         <div className="px-4 pb-4">
           <div className="grid grid-cols-3 gap-2 mt-2">
-             <OddsButton
+            <OddsButton
               matchId={match.id}
               homeTeam={match.homeTeam}
               awayTeam={match.awayTeam}
@@ -77,6 +89,16 @@ export function MatchCard({ match }: MatchCardProps) {
               odds={match.awayOdds}
             />
           </div>
+
+          {marketsCount > 1 && (
+            <Link href={`/match/${match.id}`}>
+              <div className="mt-2 text-center py-1.5 rounded-md bg-secondary/60 hover:bg-secondary transition-colors cursor-pointer">
+                <span className="text-xs font-semibold text-primary">
+                  +{marketsCount - 1} more markets
+                </span>
+              </div>
+            </Link>
+          )}
         </div>
       </CardContent>
     </Card>

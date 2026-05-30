@@ -95,7 +95,8 @@ export const ListMatchesResponseItem = zod.object({
   "drawOdds": zod.number(),
   "awayOdds": zod.number(),
   "hasOddsBoost": zod.boolean().optional(),
-  "isFeatured": zod.boolean().optional()
+  "isFeatured": zod.boolean().optional(),
+  "marketsCount": zod.number().optional().describe('Total number of betting markets available for this match')
 })
 export const ListMatchesResponse = zod.array(ListMatchesResponseItem)
 
@@ -119,7 +120,8 @@ export const GetLiveMatchesResponseItem = zod.object({
   "drawOdds": zod.number(),
   "awayOdds": zod.number(),
   "hasOddsBoost": zod.boolean().optional(),
-  "isFeatured": zod.boolean().optional()
+  "isFeatured": zod.boolean().optional(),
+  "marketsCount": zod.number().optional().describe('Total number of betting markets available for this match')
 })
 export const GetLiveMatchesResponse = zod.array(GetLiveMatchesResponseItem)
 
@@ -143,7 +145,8 @@ export const GetFeaturedMatchesResponseItem = zod.object({
   "drawOdds": zod.number(),
   "awayOdds": zod.number(),
   "hasOddsBoost": zod.boolean().optional(),
-  "isFeatured": zod.boolean().optional()
+  "isFeatured": zod.boolean().optional(),
+  "marketsCount": zod.number().optional().describe('Total number of betting markets available for this match')
 })
 export const GetFeaturedMatchesResponse = zod.array(GetFeaturedMatchesResponseItem)
 
@@ -357,7 +360,8 @@ export const ListJackpotsResponseItem = zod.object({
   "drawOdds": zod.number(),
   "awayOdds": zod.number(),
   "hasOddsBoost": zod.boolean().optional(),
-  "isFeatured": zod.boolean().optional()
+  "isFeatured": zod.boolean().optional(),
+  "marketsCount": zod.number().optional().describe('Total number of betting markets available for this match')
 }))
 })
 export const ListJackpotsResponse = zod.array(ListJackpotsResponseItem)
@@ -395,7 +399,8 @@ export const GetJackpotResponse = zod.object({
   "drawOdds": zod.number(),
   "awayOdds": zod.number(),
   "hasOddsBoost": zod.boolean().optional(),
-  "isFeatured": zod.boolean().optional()
+  "isFeatured": zod.boolean().optional(),
+  "marketsCount": zod.number().optional().describe('Total number of betting markets available for this match')
 }))
 })
 

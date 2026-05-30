@@ -97,6 +97,8 @@ export interface Match {
   awayOdds: number;
   hasOddsBoost?: boolean;
   isFeatured?: boolean;
+  /** Total number of betting markets available for this match */
+  marketsCount?: number;
 }
 
 export interface OddsSelection {
