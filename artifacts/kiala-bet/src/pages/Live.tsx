@@ -1,10 +1,12 @@
-import { useGetLiveMatches } from "@workspace/api-client-react";
+import { useGetLiveMatches, getGetLiveMatchesQueryKey } from "@workspace/api-client-react";
 import { MatchCard } from "@/components/shared/MatchCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Activity } from "lucide-react";
 
 export default function Live() {
-  const { data: matches, isLoading } = useGetLiveMatches();
+  const { data: matches, isLoading } = useGetLiveMatches({
+    query: { refetchInterval: 30_000, queryKey: getGetLiveMatchesQueryKey() }
+  });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">

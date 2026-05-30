@@ -1,13 +1,23 @@
-import { useGetFeaturedMatches } from "@workspace/api-client-react";
+import { useGetFeaturedMatches, useListMatches, getGetFeaturedMatchesQueryKey, getListMatchesQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MatchCard } from "@/components/shared/MatchCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { Trophy, Gift, Activity, Gamepad2 } from "lucide-react";
+import { Trophy, Gift, Activity, Gamepad2, CalendarOff } from "lucide-react";
 
 export default function Home() {
-  const { data: matches, isLoading } = useGetFeaturedMatches();
+  const { data: featuredMatches, isLoading: featuredLoading } = useGetFeaturedMatches({
+    query: { refetchInterval: 60_000, queryKey: getGetFeaturedMatchesQueryKey() }
+  });
+  const { data: allMatches, isLoading: allLoading } = useListMatches(
+    { sport: "football", limit: 6 },
+    { query: { refetchInterval: 60_000, queryKey: getListMatchesQueryKey({ sport: "football", limit: 6 }) } }
+  );
+
+  // Use featured if available, fall back to recent football matches
+  const matches = (featuredMatches && featuredMatches.length > 0) ? featuredMatches : allMatches;
+  const isLoading = featuredLoading && allLoading;
 
   return (
     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
@@ -48,11 +58,17 @@ export default function Home() {
               <Skeleton key={i} className="h-44 bg-card border-border rounded-xl" />
             ))}
           </div>
-        ) : (
+        ) : matches && matches.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {matches?.slice(0, 3).map((match) => (
+            {matches.slice(0, 6).map((match) => (
               <MatchCard key={match.id} match={match} />
             ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground bg-card rounded-xl border border-border">
+            <CalendarOff className="h-10 w-10 mb-3 opacity-20" />
+            <p className="text-lg font-bold text-foreground mb-1">No Available Matches Currently</p>
+            <p className="text-sm">Fixtures are updated automatically. Check back soon.</p>
           </div>
         )}
       </section>

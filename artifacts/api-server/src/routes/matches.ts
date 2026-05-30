@@ -1,7 +1,9 @@
 import { Router, type IRouter } from "express";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, inArray, notInArray } from "drizzle-orm";
 import { db, matchesTable, leaguesTable, oddsMarketsTable, oddsSelectionsTable } from "@workspace/db";
 import { ListMatchesQueryParams } from "@workspace/api-zod";
+import { syncFixtures } from "../lib/footballData";
+import { requireAdmin } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -37,7 +39,12 @@ router.get("/matches", async (req, res): Promise<void> => {
 
   const conditions = [];
   if (sport) conditions.push(eq(matchesTable.sport, sport));
-  if (status) conditions.push(eq(matchesTable.status, status));
+  if (status) {
+    conditions.push(eq(matchesTable.status, status));
+  } else {
+    // By default exclude cancelled matches
+    conditions.push(notInArray(matchesTable.status, ["cancelled"]));
+  }
 
   const rows = await db
     .select()
@@ -126,6 +133,16 @@ router.get("/leagues", async (_req, res): Promise<void> => {
       logoUrl: l.logoUrl,
     })),
   );
+});
+
+// Manual sync trigger (admin only)
+router.post("/matches/sync", requireAdmin, async (_req, res): Promise<void> => {
+  try {
+    const count = await syncFixtures();
+    res.json({ synced: count, message: `Synced ${count} fixtures` });
+  } catch (err) {
+    res.status(500).json({ error: "Sync failed" });
+  }
 });
 
 export default router;

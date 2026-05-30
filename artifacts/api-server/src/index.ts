@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { startFixtureSync } from "./lib/footballData";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +23,7 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // Start syncing real fixtures from Football-Data every 60 seconds
+  startFixtureSync(60_000);
 });

@@ -13,6 +13,7 @@ export const leaguesTable = pgTable("leagues", {
 
 export const matchesTable = pgTable("matches", {
   id: serial("id").primaryKey(),
+  externalId: text("external_id").unique(),
   homeTeam: text("home_team").notNull(),
   awayTeam: text("away_team").notNull(),
   sport: text("sport").notNull(),
