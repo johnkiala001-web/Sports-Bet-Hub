@@ -2,7 +2,7 @@ import { useBetSlip } from "@/contexts/BetSlipContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { X, Trash2 } from "lucide-react";
+import { X, Trash2, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLocation } from "wouter";
@@ -40,9 +40,7 @@ export function BetSlip() {
       <div
         className={cn(
           "fixed z-50 bg-card border-border flex flex-col shadow-2xl transition-transform duration-300 ease-in-out",
-          // Mobile: Bottom sheet
           "bottom-0 left-0 right-0 h-[80vh] md:h-screen rounded-t-2xl md:rounded-none border-t md:border-t-0 md:border-l",
-          // Desktop: Right sidebar
           "md:top-0 md:bottom-0 md:right-0 md:left-auto md:w-96",
           isOpen ? "translate-y-0 md:translate-x-0" : "translate-y-full md:translate-x-full"
         )}
@@ -73,24 +71,63 @@ export function BetSlip() {
               <p className="text-xs mt-1">Make a selection to start playing.</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {selections.map((s) => (
-                <div key={s.matchId} className="bg-secondary/50 rounded-lg p-3 relative border border-border">
-                  <button
-                    onClick={() => removeSelection(s.matchId)}
-                    className="absolute top-2 right-2 text-muted-foreground hover:text-destructive transition-colors"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                  <div className="text-xs text-muted-foreground mb-1">
-                    {s.homeTeam} vs {s.awayTeam}
+            <div className="space-y-3">
+              {selections.map((s) =>
+                s.sgmLegs ? (
+                  /* SGM entry */
+                  <div key={s.id} className="bg-secondary/50 rounded-lg p-3 relative border border-primary/40">
+                    <button
+                      onClick={() => removeSelection(s.id)}
+                      className="absolute top-2 right-2 text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+
+                    {/* SGM header */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="flex items-center gap-1 bg-primary/20 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        <Layers className="h-3 w-3" /> Builder
+                      </span>
+                      <span className="text-xs text-muted-foreground truncate">{s.homeTeam} vs {s.awayTeam}</span>
+                    </div>
+
+                    {/* Legs list */}
+                    <div className="space-y-1.5 mb-2">
+                      {s.sgmLegs.map((leg, i) => (
+                        <div key={i} className="flex justify-between items-center text-xs">
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-muted-foreground truncate">{leg.market}</span>
+                            <span className="font-semibold">{leg.label}</span>
+                          </div>
+                          <span className="text-primary font-bold ml-2 shrink-0">{leg.odds.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2 border-t border-border/50">
+                      <span className="text-xs text-muted-foreground">{s.sgmLegs.length} legs combined</span>
+                      <span className="font-black text-primary text-base">{s.odds.toFixed(2)}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center font-bold">
-                    <span>{s.label} ({s.market})</span>
-                    <span className="text-primary">{s.odds.toFixed(2)}</span>
+                ) : (
+                  /* Single entry */
+                  <div key={s.id} className="bg-secondary/50 rounded-lg p-3 relative border border-border">
+                    <button
+                      onClick={() => removeSelection(s.id)}
+                      className="absolute top-2 right-2 text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                    <div className="text-xs text-muted-foreground mb-1">
+                      {s.homeTeam} vs {s.awayTeam}
+                    </div>
+                    <div className="flex justify-between items-center font-bold pr-4">
+                      <span>{s.label} <span className="font-normal text-muted-foreground">({s.market})</span></span>
+                      <span className="text-primary">{s.odds.toFixed(2)}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              )}
             </div>
           )}
         </ScrollArea>
@@ -101,44 +138,33 @@ export function BetSlip() {
               <span className="text-muted-foreground">Total Odds:</span>
               <span className="font-bold">{totalOdds.toFixed(2)}</span>
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Stake Amount</label>
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  min="0"
-                  value={stake || ""}
-                  onChange={(e) => setStake(Number(e.target.value))}
-                  placeholder="Enter stake"
-                  className="bg-secondary/50 font-bold text-lg text-right"
-                />
-              </div>
+              <Input
+                type="number"
+                min="0"
+                value={stake || ""}
+                onChange={(e) => setStake(Number(e.target.value))}
+                placeholder="Enter stake"
+                className="bg-secondary/50 font-bold text-lg text-right"
+              />
             </div>
 
             <div className="flex justify-between items-center py-2 border-y border-border/50">
               <span className="font-bold">Potential Win:</span>
-              <span className="text-xl font-black text-primary">
-                ${potentialWin.toFixed(2)}
-              </span>
+              <span className="text-xl font-black text-primary">${potentialWin.toFixed(2)}</span>
             </div>
 
             {isAuthenticated ? (
-              <Button 
-                className="w-full h-12 text-lg font-bold" 
-                onClick={placeBet} 
-                disabled={isPlacing || stake <= 0}
-              >
+              <Button className="w-full h-12 text-lg font-bold" onClick={placeBet} disabled={isPlacing || stake <= 0}>
                 {isPlacing ? "Placing Bet..." : "Place Bet"}
               </Button>
             ) : (
-              <Button 
-                className="w-full h-12 text-lg font-bold" 
+              <Button
+                className="w-full h-12 text-lg font-bold"
                 variant="secondary"
-                onClick={() => {
-                  setIsOpen(false);
-                  setLocation("/login");
-                }}
+                onClick={() => { setIsOpen(false); setLocation("/login"); }}
               >
                 Login to Place Bet
               </Button>

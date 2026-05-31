@@ -3,19 +3,28 @@ import { usePlaceBet, useGetWallet, useListBets, getListBetsQueryKey, getGetWall
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
-interface BetSelection {
+export interface SGMLeg {
+  market: string;
+  label: string;
+  odds: number;
+}
+
+export interface BetSelection {
+  id: string;
   matchId: number;
   market: string;
   label: string;
   odds: number;
   homeTeam: string;
   awayTeam: string;
+  sgmLegs?: SGMLeg[];
 }
 
 interface BetSlipContextType {
   selections: BetSelection[];
-  addSelection: (selection: BetSelection) => void;
-  removeSelection: (matchId: number) => void;
+  addSelection: (selection: Omit<BetSelection, "id">) => void;
+  addSGMBet: (matchId: number, homeTeam: string, awayTeam: string, legs: SGMLeg[]) => void;
+  removeSelection: (id: string) => void;
   clearSlip: () => void;
   stake: number;
   setStake: (stake: number) => void;
@@ -29,6 +38,10 @@ interface BetSlipContextType {
 
 const BetSlipContext = createContext<BetSlipContextType | undefined>(undefined);
 
+function sgmCombinedOdds(legs: SGMLeg[]): number {
+  return legs.reduce((acc, l) => acc * l.odds, 1);
+}
+
 export function BetSlipProvider({ children }: { children: React.ReactNode }) {
   const [selections, setSelections] = useState<BetSelection[]>([]);
   const [stake, setStake] = useState<number>(0);
@@ -38,16 +51,40 @@ export function BetSlipProvider({ children }: { children: React.ReactNode }) {
 
   const placeBetMutation = usePlaceBet();
 
-  const addSelection = (selection: BetSelection) => {
+  const addSelection = (selection: Omit<BetSelection, "id">) => {
     setSelections((prev) => {
-      const filtered = prev.filter((s) => s.matchId !== selection.matchId);
-      return [...filtered, selection];
+      const filtered = prev.filter((s) => !(s.matchId === selection.matchId && !s.sgmLegs));
+      const id = `single-${selection.matchId}-${selection.market}`;
+      return [...filtered, { ...selection, id }];
     });
     setIsOpen(true);
   };
 
-  const removeSelection = (matchId: number) => {
-    setSelections((prev) => prev.filter((s) => s.matchId !== matchId));
+  const addSGMBet = (matchId: number, homeTeam: string, awayTeam: string, legs: SGMLeg[]) => {
+    if (legs.length === 0) return;
+    const combined = sgmCombinedOdds(legs);
+    const id = `sgm-${matchId}-${Date.now()}`;
+    setSelections((prev) => {
+      const filtered = prev.filter((s) => !(s.matchId === matchId && !!s.sgmLegs));
+      return [
+        ...filtered,
+        {
+          id,
+          matchId,
+          homeTeam,
+          awayTeam,
+          market: "Same Game Multi",
+          label: `${legs.length} leg${legs.length > 1 ? "s" : ""}`,
+          odds: combined,
+          sgmLegs: legs,
+        },
+      ];
+    });
+    setIsOpen(true);
+  };
+
+  const removeSelection = (id: string) => {
+    setSelections((prev) => prev.filter((s) => s.id !== id));
   };
 
   const clearSlip = () => {
@@ -65,32 +102,29 @@ export function BetSlipProvider({ children }: { children: React.ReactNode }) {
       {
         data: {
           stake,
-          selections: selections.map(s => ({
-            matchId: s.matchId,
-            market: s.market,
-            label: s.label,
-            odds: s.odds
-          }))
-        }
+          selections: selections.flatMap((s) =>
+            s.sgmLegs
+              ? s.sgmLegs.map((leg) => ({
+                  matchId: s.matchId,
+                  market: leg.market,
+                  label: leg.label,
+                  odds: leg.odds,
+                }))
+              : [{ matchId: s.matchId, market: s.market, label: s.label, odds: s.odds }]
+          ),
+        },
       },
       {
         onSuccess: () => {
-          toast({
-            title: "Bet Placed Successfully",
-            description: "Good luck!",
-          });
+          toast({ title: "Bet Placed Successfully", description: "Good luck!" });
           clearSlip();
           setIsOpen(false);
           queryClient.invalidateQueries({ queryKey: getListBetsQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetWalletQueryKey() });
         },
         onError: () => {
-          toast({
-            title: "Error Placing Bet",
-            description: "Please try again later.",
-            variant: "destructive",
-          });
-        }
+          toast({ title: "Error Placing Bet", description: "Please try again later.", variant: "destructive" });
+        },
       }
     );
   };
@@ -100,6 +134,7 @@ export function BetSlipProvider({ children }: { children: React.ReactNode }) {
       value={{
         selections,
         addSelection,
+        addSGMBet,
         removeSelection,
         clearSlip,
         stake,

@@ -9,6 +9,9 @@ interface OddsButtonProps {
   label: string;
   odds: number;
   className?: string;
+  sgmMode?: boolean;
+  sgmSelected?: boolean;
+  onSGMToggle?: () => void;
 }
 
 export function OddsButton({
@@ -19,16 +22,26 @@ export function OddsButton({
   label,
   odds,
   className,
+  sgmMode = false,
+  sgmSelected = false,
+  onSGMToggle,
 }: OddsButtonProps) {
   const { selections, addSelection, removeSelection } = useBetSlip();
 
-  const isSelected = selections.some(
-    (s) => s.matchId === matchId && s.label === label && s.market === market
+  const normalSelection = selections.find(
+    (s) => s.matchId === matchId && s.label === label && s.market === market && !s.sgmLegs
   );
+  const isNormalSelected = !!normalSelection;
 
-  const toggleSelection = () => {
-    if (isSelected) {
-      removeSelection(matchId);
+  const isSelected = sgmMode ? sgmSelected : isNormalSelected;
+
+  const handleClick = () => {
+    if (sgmMode) {
+      onSGMToggle?.();
+      return;
+    }
+    if (isNormalSelected && normalSelection) {
+      removeSelection(normalSelection.id);
     } else {
       addSelection({ matchId, market, label, odds, homeTeam, awayTeam });
     }
@@ -36,7 +49,7 @@ export function OddsButton({
 
   return (
     <button
-      onClick={toggleSelection}
+      onClick={handleClick}
       className={cn(
         "flex flex-col items-center justify-center p-2 rounded-md transition-all duration-200 min-w-[60px]",
         isSelected
