@@ -58,7 +58,7 @@ router.get("/matches", async (req, res): Promise<void> => {
   if (status) {
     conditions.push(eq(matchesTable.status, status));
   } else {
-    conditions.push(notInArray(matchesTable.status, ["cancelled"]));
+    conditions.push(notInArray(matchesTable.status, ["cancelled", "finished"]));
   }
 
   const rows = await db

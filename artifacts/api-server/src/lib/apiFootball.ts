@@ -1,5 +1,5 @@
-import { db, matchesTable, oddsMarketsTable, oddsSelectionsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, matchesTable, oddsMarketsTable, oddsSelectionsTable, betsTable, betSelectionsTable, walletsTable, transactionsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import { logger } from "./logger";
 
 const BASE_URL = "https://v3.football.api-sports.io";
@@ -540,6 +540,84 @@ async function generateMarketsForMatch(matchId: number, fixtureId: number, h: nu
   }
 }
 
+// Auto-settle pending bets when a match finishes
+async function settleBetsForMatch(matchId: number, homeScore: number, awayScore: number): Promise<void> {
+  try {
+    const pendingSelections = await db
+      .select()
+      .from(betSelectionsTable)
+      .where(and(eq(betSelectionsTable.matchId, matchId), eq(betSelectionsTable.result, "pending")));
+
+    if (pendingSelections.length === 0) return;
+
+    for (const sel of pendingSelections) {
+      let result: "won" | "lost" | null = null;
+      const market = sel.market.toLowerCase();
+
+      if (market === "match result" || market === "1x2") {
+        if (sel.label === "1" && homeScore > awayScore) result = "won";
+        else if (sel.label === "X" && homeScore === awayScore) result = "won";
+        else if (sel.label === "2" && awayScore > homeScore) result = "won";
+        else result = "lost";
+      } else if (market.startsWith("over/under")) {
+        const match = sel.market.match(/([\d.]+)/);
+        const line = match ? parseFloat(match[1]) : null;
+        const totalGoals = homeScore + awayScore;
+        if (line !== null) {
+          if (sel.label.startsWith("Over") && totalGoals > line) result = "won";
+          else if (sel.label.startsWith("Over")) result = "lost";
+          else if (sel.label.startsWith("Under") && totalGoals < line) result = "won";
+          else if (sel.label.startsWith("Under")) result = "lost";
+        }
+      } else if (market === "both teams to score") {
+        const btts = homeScore > 0 && awayScore > 0;
+        if (sel.label === "Yes" && btts) result = "won";
+        else if (sel.label === "No" && !btts) result = "won";
+        else result = "lost";
+      }
+
+      if (result) {
+        await db.update(betSelectionsTable).set({ result }).where(eq(betSelectionsTable.id, sel.id));
+      }
+    }
+
+    const uniqueBetIds = [...new Set(pendingSelections.map(s => s.betId))];
+
+    for (const betId of uniqueBetIds) {
+      const [bet] = await db.select().from(betsTable).where(eq(betsTable.id, betId));
+      if (!bet || bet.status !== "pending") continue;
+
+      const allSelections = await db.select().from(betSelectionsTable).where(eq(betSelectionsTable.betId, betId));
+      const anyLost = allSelections.some(s => s.result === "lost");
+      const allResolved = allSelections.every(s => s.result !== "pending");
+
+      if (anyLost) {
+        await db.update(betsTable).set({ status: "lost", actualWin: "0" }).where(eq(betsTable.id, betId));
+        logger.info({ betId }, "Bet settled: lost");
+      } else if (allResolved) {
+        const potentialWin = parseFloat(bet.potentialWin as string);
+        await db.update(betsTable).set({ status: "won", actualWin: potentialWin.toFixed(2) }).where(eq(betsTable.id, betId));
+
+        const [wallet] = await db.select().from(walletsTable).where(eq(walletsTable.userId, bet.userId));
+        if (wallet) {
+          const newBalance = (parseFloat(wallet.balance as string) + potentialWin).toFixed(2);
+          await db.update(walletsTable).set({ balance: newBalance }).where(eq(walletsTable.userId, bet.userId));
+          await db.insert(transactionsTable).values({
+            userId: bet.userId,
+            type: "win",
+            amount: potentialWin.toFixed(2),
+            status: "completed",
+            description: `Bet #${betId} won - KES ${potentialWin.toFixed(2)}`,
+          });
+        }
+        logger.info({ betId, potentialWin }, "Bet settled: won");
+      }
+    }
+  } catch (err) {
+    logger.warn({ matchId, err }, "Failed to settle bets for match");
+  }
+}
+
 // Target league IDs set for fast lookup
 const TARGET_IDS = new Set(UNIQUE_LEAGUES.map(l => l.id));
 
@@ -551,13 +629,14 @@ export async function syncFixtures(): Promise<number> {
   }
 
   const today = new Date();
-  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
   const tomorrow  = new Date(today); tomorrow.setDate(today.getDate() + 1);
   const in2days   = new Date(today); in2days.setDate(today.getDate() + 2);
+  const in3days   = new Date(today); in3days.setDate(today.getDate() + 3);
 
   const fmt = (d: Date) => d.toISOString().split("T")[0];
 
-  const dates = [fmt(yesterday), fmt(today), fmt(tomorrow), fmt(in2days)];
+  // Only today and upcoming — no yesterday, so finished games vanish on next sync
+  const dates = [fmt(today), fmt(tomorrow), fmt(in2days), fmt(in3days)];
 
   logger.info({ dates }, "Syncing fixtures from API-Football");
 
@@ -633,6 +712,11 @@ export async function syncFixtures(): Promise<number> {
 
       if (row) {
         await generateMarketsForMatch(row.id, f.fixture.id, odds.home, odds.draw, odds.away);
+
+        // Settle any pending bets when match just finished
+        if (status === "finished" && f.score.fulltime.home != null && f.score.fulltime.away != null) {
+          await settleBetsForMatch(row.id, f.score.fulltime.home, f.score.fulltime.away);
+        }
       }
 
       upserted++;

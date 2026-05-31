@@ -31,7 +31,7 @@ export function BetSlip() {
       {/* Mobile overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/60 z-50 md:hidden backdrop-blur-sm transition-opacity"
+          className="fixed inset-0 bg-black/60 z-50 md:hidden backdrop-blur-sm"
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -40,7 +40,7 @@ export function BetSlip() {
       <div
         className={cn(
           "fixed z-50 bg-card border-border flex flex-col shadow-2xl transition-transform duration-300 ease-in-out",
-          "bottom-0 left-0 right-0 h-[80vh] md:h-screen rounded-t-2xl md:rounded-none border-t md:border-t-0 md:border-l",
+          "bottom-[60px] left-0 right-0 h-[78vh] md:h-screen rounded-t-2xl md:rounded-none border-t md:border-t-0 md:border-l",
           "md:top-0 md:bottom-0 md:right-0 md:left-auto md:w-96",
           isOpen ? "translate-y-0 md:translate-x-0" : "translate-y-full md:translate-x-full"
         )}
@@ -58,7 +58,7 @@ export function BetSlip() {
                 <Trash2 className="h-4 w-4" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="md:hidden">
+            <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
               <X className="h-5 w-5" />
             </Button>
           </div>
@@ -74,7 +74,6 @@ export function BetSlip() {
             <div className="space-y-3">
               {selections.map((s) =>
                 s.sgmLegs ? (
-                  /* SGM entry */
                   <div key={s.id} className="bg-secondary/50 rounded-lg p-3 relative border border-primary/40">
                     <button
                       onClick={() => removeSelection(s.id)}
@@ -82,16 +81,12 @@ export function BetSlip() {
                     >
                       <X className="h-4 w-4" />
                     </button>
-
-                    {/* SGM header */}
                     <div className="flex items-center gap-2 mb-2">
                       <span className="flex items-center gap-1 bg-primary/20 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                         <Layers className="h-3 w-3" /> Builder
                       </span>
                       <span className="text-xs text-muted-foreground truncate">{s.homeTeam} vs {s.awayTeam}</span>
                     </div>
-
-                    {/* Legs list */}
                     <div className="space-y-1.5 mb-2">
                       {s.sgmLegs.map((leg, i) => (
                         <div key={i} className="flex justify-between items-center text-xs">
@@ -103,14 +98,12 @@ export function BetSlip() {
                         </div>
                       ))}
                     </div>
-
                     <div className="flex justify-between items-center pt-2 border-t border-border/50">
                       <span className="text-xs text-muted-foreground">{s.sgmLegs.length} legs combined</span>
                       <span className="font-black text-primary text-base">{s.odds.toFixed(2)}</span>
                     </div>
                   </div>
                 ) : (
-                  /* Single entry */
                   <div key={s.id} className="bg-secondary/50 rounded-lg p-3 relative border border-border">
                     <button
                       onClick={() => removeSelection(s.id)}
@@ -138,9 +131,8 @@ export function BetSlip() {
               <span className="text-muted-foreground">Total Odds:</span>
               <span className="font-bold">{totalOdds.toFixed(2)}</span>
             </div>
-
             <div className="space-y-2">
-              <label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Stake Amount</label>
+              <label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Stake (KES)</label>
               <Input
                 type="number"
                 min="0"
@@ -150,12 +142,10 @@ export function BetSlip() {
                 className="bg-secondary/50 font-bold text-lg text-right"
               />
             </div>
-
             <div className="flex justify-between items-center py-2 border-y border-border/50">
               <span className="font-bold">Potential Win:</span>
-              <span className="text-xl font-black text-primary">${potentialWin.toFixed(2)}</span>
+              <span className="text-xl font-black text-primary">KES {potentialWin.toFixed(2)}</span>
             </div>
-
             {isAuthenticated ? (
               <Button className="w-full h-12 text-lg font-bold" onClick={placeBet} disabled={isPlacing || stake <= 0}>
                 {isPlacing ? "Placing Bet..." : "Place Bet"}
@@ -173,11 +163,11 @@ export function BetSlip() {
         )}
       </div>
 
-      {/* Floating trigger for desktop when closed */}
+      {/* Desktop floating trigger when closed */}
       {!isOpen && selections.length > 0 && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-20 md:bottom-8 right-4 md:right-8 bg-primary text-primary-foreground p-4 rounded-full shadow-2xl flex items-center gap-2 hover:scale-105 transition-transform z-40"
+          className="hidden md:flex fixed bottom-8 right-8 bg-primary text-primary-foreground p-4 rounded-full shadow-2xl items-center gap-2 hover:scale-105 transition-transform z-40"
         >
           <span className="font-bold">Bet Slip</span>
           <span className="bg-background text-foreground rounded-full w-6 h-6 flex items-center justify-center text-xs font-black">

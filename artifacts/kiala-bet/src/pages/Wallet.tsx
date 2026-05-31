@@ -45,7 +45,7 @@ export default function Wallet() {
       { data: { amount: val, method } },
       {
         onSuccess: () => {
-          toast({ title: "Deposit Successful", description: `Added $${val.toFixed(2)} to your wallet.` });
+          toast({ title: "Deposit Successful", description: `Added KES ${val.toFixed(2)} to your wallet.` });
           setAmount("");
           queryClient.invalidateQueries({ queryKey: getGetWalletQueryKey() });
           queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey({ limit: 10 }) });
@@ -74,9 +74,9 @@ export default function Wallet() {
                 <div className="h-10 bg-secondary animate-pulse rounded w-1/2"></div>
               ) : (
                 <>
-                  <div className="text-4xl font-black text-white">${wallet?.balance.toFixed(2)}</div>
+                  <div className="text-4xl font-black text-white">KES {wallet?.balance.toFixed(2)}</div>
                   <div className="text-sm text-primary font-medium mt-1">
-                    +${wallet?.bonusBalance.toFixed(2)} Bonus
+                    +KES {wallet?.bonusBalance.toFixed(2)} Bonus
                   </div>
                 </>
               )}
@@ -90,7 +90,7 @@ export default function Wallet() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-muted-foreground uppercase">Amount (USD)</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase">Amount (KES)</label>
                 <Input 
                   type="number" 
                   value={amount} 
@@ -176,7 +176,7 @@ export default function Wallet() {
                       </div>
                       <div className="text-right">
                         <p className={`font-bold ${tx.type === 'deposit' || tx.type === 'win' ? 'text-primary' : ''}`}>
-                          {tx.type === 'deposit' || tx.type === 'win' ? '+' : '-'}${tx.amount.toFixed(2)}
+                          {tx.type === 'deposit' || tx.type === 'win' ? '+' : '-'}KES {tx.amount.toFixed(2)}
                         </p>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                           {tx.status}

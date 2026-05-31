@@ -60,9 +60,9 @@ export default function Dashboard() {
             <Wallet className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">${dashboard.wallet.balance.toFixed(2)}</div>
+            <div className="text-3xl font-bold">KES {dashboard.wallet.balance.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              +${dashboard.wallet.bonusBalance.toFixed(2)} Bonus
+              +KES {dashboard.wallet.bonusBalance.toFixed(2)} Bonus
             </p>
           </CardContent>
         </Card>
@@ -86,7 +86,7 @@ export default function Dashboard() {
             <Trophy className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-primary">${dashboard.betSummary.totalWon.toFixed(2)}</div>
+            <div className="text-3xl font-bold text-primary">KES {dashboard.betSummary.totalWon.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground mt-1">
               Lifetime winnings
             </p>
@@ -133,7 +133,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-bold">${bet.stake.toFixed(2)}</div>
+                      <div className="font-bold">KES {bet.stake.toFixed(2)}</div>
                       <div className={`text-xs font-bold uppercase ${
                         bet.status === 'won' ? 'text-primary' : 
                         bet.status === 'lost' ? 'text-destructive' : 'text-muted-foreground'
@@ -171,7 +171,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="font-bold text-primary text-lg">
-                      ${bonus.amount.toFixed(2)}
+                      KES {bonus.amount.toFixed(2)}
                     </div>
                   </div>
                 ))}
