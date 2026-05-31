@@ -7,9 +7,16 @@ import { Link } from "wouter";
 import { Trophy, Gift, Activity, Gamepad2, CalendarOff } from "lucide-react";
 
 export default function Home() {
-  const { data: upcomingMatches, isLoading } = useListMatches(
-    { sport: "football", status: "upcoming", limit: 12 },
-    { query: { refetchInterval: 60_000, queryKey: getListMatchesQueryKey({ sport: "football", status: "upcoming", limit: 12 }) } }
+  // Fetch a large pool — we client-side filter to kickoff > now
+  const { data: allUpcoming, isLoading } = useListMatches(
+    { status: "upcoming", limit: 200 },
+    { query: { refetchInterval: 30_000, queryKey: getListMatchesQueryKey({ status: "upcoming", limit: 200 }) } }
+  );
+
+  // Only show games whose kickoff is in the future (client-side real-time gate)
+  const now = new Date();
+  const upcomingMatches = (allUpcoming ?? []).filter(
+    (m) => new Date(m.kickoff) > now
   );
 
   return (
@@ -35,11 +42,16 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Today's Upcoming Matches */}
+      {/* Upcoming matches */}
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-black tracking-tight flex items-center gap-2 uppercase">
-            <Activity className="text-primary h-5 w-5" /> Today's Games
+            <Activity className="text-primary h-5 w-5" /> Upcoming Games
+            {!isLoading && upcomingMatches.length > 0 && (
+              <span className="text-sm font-normal text-muted-foreground normal-case">
+                ({upcomingMatches.length})
+              </span>
+            )}
           </h2>
           <Button variant="ghost" asChild className="font-bold text-sm">
             <Link href="/sports">See All</Link>
@@ -47,14 +59,14 @@ export default function Home() {
         </div>
 
         {isLoading ? (
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map(i => (
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map(i => (
               <Skeleton key={i} className="h-44 bg-card border-border rounded-xl" />
             ))}
           </div>
-        ) : upcomingMatches && upcomingMatches.length > 0 ? (
+        ) : upcomingMatches.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {upcomingMatches.slice(0, 6).map((match) => (
+            {upcomingMatches.map((match) => (
               <MatchCard key={match.id} match={match} />
             ))}
           </div>
@@ -100,7 +112,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Jackpot Teaser */}
+      {/* Jackpot */}
       <section className="bg-gradient-to-br from-[#1a1a24] to-background border border-primary/20 rounded-2xl p-6 md:p-8 relative overflow-hidden">
         <div className="absolute -right-20 -top-20 opacity-10">
           <Trophy className="w-96 h-96" />

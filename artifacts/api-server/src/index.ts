@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { startFixtureSync } from "./lib/apiFootball";
+import { startFixtureSync, startLiveSync } from "./lib/apiFootball";
 
 const rawPort = process.env["PORT"];
 
@@ -24,6 +24,10 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
 
-  // Start syncing real fixtures from Football-Data every 60 seconds
-  startFixtureSync(60_000);
+  // Full date-based sync every 20 minutes (4 req/cycle × 72 cycles/day = 288 req/day budget)
+  // In practice rate limiter will cap it — this ensures fresh upcoming fixtures
+  startFixtureSync(20 * 60_000);
+
+  // Live-only sync every 3 minutes (1 req/cycle) for real-time score + status updates
+  startLiveSync(3 * 60_000);
 });

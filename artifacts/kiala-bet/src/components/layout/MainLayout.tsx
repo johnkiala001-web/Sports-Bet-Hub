@@ -14,7 +14,17 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     { status: "live", limit: 200 },
     { query: { refetchInterval: 30_000, queryKey: getListMatchesQueryKey({ status: "live", limit: 200 }) } }
   );
-  const liveCount = liveMatches?.length ?? 0;
+  const { data: upcomingForCount } = useListMatches(
+    { status: "upcoming", limit: 200 },
+    { query: { refetchInterval: 30_000, queryKey: getListMatchesQueryKey({ status: "upcoming", limit: 200 }) } }
+  );
+  // Count DB-live + upcoming that have already passed kickoff (sync lag)
+  const now = new Date();
+  const liveIds = new Set((liveMatches ?? []).map(m => m.id));
+  const justStartedCount = (upcomingForCount ?? []).filter(
+    m => new Date(m.kickoff) <= now && !liveIds.has(m.id)
+  ).length;
+  const liveCount = (liveMatches?.length ?? 0) + justStartedCount;
 
   const isActive = (path: string) =>
     path === "/" ? location === "/" : location.startsWith(path);

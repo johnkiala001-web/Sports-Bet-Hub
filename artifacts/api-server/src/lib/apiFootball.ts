@@ -621,6 +621,63 @@ async function settleBetsForMatch(matchId: number, homeScore: number, awayScore:
 // Target league IDs set for fast lookup
 const TARGET_IDS = new Set(UNIQUE_LEAGUES.map(l => l.id));
 
+// Sync only currently-live fixtures (1 API request) — called every few minutes
+export async function syncLiveFixtures(): Promise<void> {
+  const key = process.env["API_FOOTBALL_KEY"];
+  if (!key) return;
+
+  const fixtures = await apiFetch<AFFixture[]>("/fixtures?live=all");
+  if (!fixtures || fixtures.length === 0) return;
+
+  const relevant = fixtures.filter(f => TARGET_IDS.has(f.league.id));
+  logger.info({ count: relevant.length }, "Live fixtures sync");
+
+  for (const f of relevant) {
+    try {
+      const externalId = `af-${f.fixture.id}`;
+      const status = mapStatus(f.fixture.status.short);
+
+      const [existing] = await db
+        .select({ id: matchesTable.id })
+        .from(matchesTable)
+        .where(eq(matchesTable.externalId, externalId));
+
+      if (!existing) continue;
+
+      await db
+        .update(matchesTable)
+        .set({
+          status,
+          homeScore: f.goals.home ?? null,
+          awayScore: f.goals.away ?? null,
+          minute: f.fixture.status.elapsed ?? null,
+          updatedAt: new Date(),
+        })
+        .where(eq(matchesTable.externalId, externalId));
+
+      if (status === "finished" && f.score.fulltime.home != null && f.score.fulltime.away != null) {
+        await settleBetsForMatch(existing.id, f.score.fulltime.home, f.score.fulltime.away);
+      }
+    } catch (err) {
+      logger.warn({ fixtureId: f.fixture.id, err }, "Live sync update failed");
+    }
+  }
+}
+
+let liveInterval: ReturnType<typeof setInterval> | null = null;
+
+export function startLiveSync(intervalMs = 3 * 60_000): void {
+  syncLiveFixtures().catch(err => logger.error({ err }, "Initial live sync failed"));
+  liveInterval = setInterval(() => {
+    syncLiveFixtures().catch(err => logger.error({ err }, "Live sync failed"));
+  }, intervalMs);
+  logger.info({ intervalMs }, "Live fixture sync started");
+}
+
+export function stopLiveSync(): void {
+  if (liveInterval) { clearInterval(liveInterval); liveInterval = null; }
+}
+
 export async function syncFixtures(): Promise<number> {
   const key = process.env["API_FOOTBALL_KEY"];
   if (!key) {
@@ -635,7 +692,7 @@ export async function syncFixtures(): Promise<number> {
 
   const fmt = (d: Date) => d.toISOString().split("T")[0];
 
-  // Only today and upcoming — no yesterday, so finished games vanish on next sync
+  // Only today and upcoming — no yesterday
   const dates = [fmt(today), fmt(tomorrow), fmt(in2days), fmt(in3days)];
 
   logger.info({ dates }, "Syncing fixtures from API-Football");
