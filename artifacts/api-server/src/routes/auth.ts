@@ -29,7 +29,7 @@ function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// ─── REGISTER (phone + password) ─────────────────────────────────────────────
+// ─── REGISTER (phone + password — immediate login, no OTP for now) ────────────
 router.post("/auth/register", async (req, res): Promise<void> => {
   const parsed = RegisterUserBody.safeParse(req.body);
   if (!parsed.success) {
@@ -40,55 +40,68 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   const { phone: rawPhone, password } = parsed.data;
   const phone = normalizePhone(rawPhone);
 
-  // Validate phone format
-  if (!/^(254|0)\d{9}$/.test(phone) && !/^\d{10,13}$/.test(phone)) {
-    res.status(400).json({ error: "Enter a valid Kenyan phone number (e.g. 0712 345 678)" });
-    return;
-  }
-
-  // Check phone not already registered and verified
+  // Check phone not already registered
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.phone, phone));
-  if (existing && existing.isPhoneVerified) {
+  if (existing) {
     res.status(400).json({ error: "This phone number is already registered. Please log in." });
     return;
   }
 
   const passwordHash = await hashPassword(password);
   const referralCode = generateReferralCode();
+  const suffix = phone.slice(-8);
+  const username = `KB${suffix}`;
+  const email = `${phone}@kiala.bet`;
 
-  if (existing && !existing.isPhoneVerified) {
-    // Re-registration attempt — update password and resend OTP
-    await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, existing.id));
-  } else {
-    // New user — auto-generate unique username and email
-    const suffix = phone.slice(-8);
-    const username = `KB${suffix}`;
-    const email = `${phone}@kiala.bet`;
+  const [user] = await db.insert(usersTable).values({
+    username,
+    email,
+    phone,
+    passwordHash,
+    referralCode,
+    isPhoneVerified: true,
+    role: "user",
+  }).returning();
 
-    await db.insert(usersTable).values({
-      username,
-      email,
-      phone,
-      passwordHash,
-      referralCode,
-      isPhoneVerified: false,
-      role: "user",
-    });
-  }
+  // Create wallet with welcome balance
+  await db.insert(walletsTable).values({
+    userId: user.id,
+    balance: "500.00",
+    bonusBalance: "100.00",
+    currency: "KES",
+  });
 
-  // Invalidate old OTPs for this phone
-  await db.update(otpCodesTable).set({ used: true }).where(eq(otpCodesTable.phone, phone));
+  await db.insert(notificationsTable).values({
+    userId: user.id,
+    title: "Welcome to KialaBet!",
+    message: "Your account is ready. You have KES 500 demo balance and KES 100 bonus to start betting!",
+    type: "info",
+  });
 
-  // Generate and store new OTP (expires in 10 minutes)
-  const code = generateOtp();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-  await db.insert(otpCodesTable).values({ phone, code, expiresAt });
+  await db.insert(bonusesTable).values({
+    userId: user.id,
+    type: "welcome",
+    amount: "100.00",
+    isUsed: false,
+  });
 
-  req.log.info({ phone }, "OTP generated for registration");
+  req.log.info({ phone, userId: user.id }, "User registered");
+
+  const token = signToken({ userId: user.id, role: user.role });
 
   res.status(201).json({
-    phone,
-    demoCode: code, // In production this would be sent via SMS only
+    token,
+    user: {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      isSuspended: user.isSuspended,
+      referralCode: user.referralCode,
+      avatarUrl: user.avatarUrl,
+      createdAt: user.createdAt.toISOString(),
+    },
   });
 });
 

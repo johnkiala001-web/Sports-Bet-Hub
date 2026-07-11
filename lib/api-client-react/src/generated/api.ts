@@ -44,7 +44,6 @@ import type {
   Notification,
   ProfileUpdate,
   RegisterInput,
-  RegisterPendingResponse,
   SuspendInput,
   Transaction,
   User,
@@ -152,9 +151,9 @@ export const getRegisterUserUrl = () => {
 /**
  * @summary Register (phone + password) — returns demo OTP code
  */
-export const registerUser = async (registerInput: RegisterInput, options?: RequestInit): Promise<RegisterPendingResponse> => {
+export const registerUser = async (registerInput: RegisterInput, options?: RequestInit): Promise<AuthResponse> => {
 
-  return customFetch<RegisterPendingResponse>(getRegisterUserUrl(),
+  return customFetch<AuthResponse>(getRegisterUserUrl(),
   {
     ...options,
     method: 'POST',

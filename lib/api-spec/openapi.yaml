@@ -52,11 +52,11 @@ paths:
               $ref: "#/components/schemas/RegisterInput"
       responses:
         "201":
-          description: OTP sent
+          description: Registered and logged in
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RegisterPendingResponse"
+                $ref: "#/components/schemas/AuthResponse"
         "400":
           description: Validation error or phone already registered
 

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
 const loginSchema = z.object({
   phone: z.string().min(9, "Enter a valid phone number"),
@@ -82,8 +83,8 @@ export default function Login() {
               )}
             />
 
-            <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={loginMutation.isPending}>
-              {loginMutation.isPending ? "Signing in..." : "Sign In"}
+            <Button type="submit" className="w-full h-12 text-lg font-bold bg-primary hover:bg-primary/90" disabled={loginMutation.isPending}>
+              {loginMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : "Login"}
             </Button>
           </form>
         </Form>
