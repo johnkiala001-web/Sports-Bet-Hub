@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 
 const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  phone: z.string().min(9, "Enter a valid phone number"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
@@ -23,13 +23,13 @@ export default function Login() {
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
+      phone: "",
       password: "",
     },
   });
 
   function onSubmit(values: z.infer<typeof loginSchema>) {
-    loginMutation.mutate({ data: values }, {
+    loginMutation.mutate({ data: { phone: values.phone, password: values.password } }, {
       onSuccess: (res) => {
         login(res.token);
         toast({ title: "Welcome back!" });
@@ -57,12 +57,12 @@ export default function Login() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
-              name="email"
+              name="phone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>Phone Number</FormLabel>
                   <FormControl>
-                    <Input placeholder="you@example.com" className="h-12 bg-secondary" {...field} />
+                    <Input type="tel" placeholder="e.g. 0712 234567" className="h-12 bg-secondary" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

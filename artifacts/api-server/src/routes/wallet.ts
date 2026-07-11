@@ -31,7 +31,23 @@ router.post("/wallet/deposit", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const { amount, method } = parsed.data;
+  const { amount, method, phone: depositPhone } = parsed.data;
+
+  // For M-Pesa: validate the phone matches the user's registered phone
+  if (method === "mpesa" && depositPhone) {
+    const { usersTable } = await import("@workspace/db");
+    const [user] = await db.select({ phone: usersTable.phone }).from(usersTable).where(eq(usersTable.id, userId));
+    if (user) {
+      // Normalize both for comparison
+      const normalize = (p: string) => p.replace(/[\s\-\(\)]/g, "").replace(/^\+/, "");
+      const userPhone = normalize(user.phone);
+      const reqPhone  = normalize(depositPhone);
+      if (userPhone !== reqPhone && !reqPhone.endsWith(userPhone.slice(-9)) && !userPhone.endsWith(reqPhone.slice(-9))) {
+        res.status(400).json({ error: `You can only deposit from your registered M-Pesa number (${user.phone})` });
+        return;
+      }
+    }
+  }
 
   const [wallet] = await db.select().from(walletsTable).where(eq(walletsTable.userId, userId));
   if (!wallet) {

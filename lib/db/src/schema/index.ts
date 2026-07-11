@@ -5,3 +5,4 @@ export * from "./matches";
 export * from "./bets";
 export * from "./jackpots";
 export * from "./misc";
+export * from "./otp";

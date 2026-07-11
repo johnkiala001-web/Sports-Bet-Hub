@@ -43,7 +43,7 @@ paths:
     post:
       operationId: registerUser
       tags: [auth]
-      summary: Register a new user
+      summary: Register (phone + password) — returns demo OTP code
       requestBody:
         required: true
         content:
@@ -52,19 +52,40 @@ paths:
               $ref: "#/components/schemas/RegisterInput"
       responses:
         "201":
-          description: Registered
+          description: OTP sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterPendingResponse"
+        "400":
+          description: Validation error or phone already registered
+
+  /auth/verify-otp:
+    post:
+      operationId: verifyOtp
+      tags: [auth]
+      summary: Verify OTP to complete registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyOtpInput"
+      responses:
+        "200":
+          description: Verified — JWT returned
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthResponse"
         "400":
-          description: Validation error
+          description: Invalid or expired code
 
   /auth/login:
     post:
       operationId: loginUser
       tags: [auth]
-      summary: Login
+      summary: Login with phone + password
       requestBody:
         required: true
         content:
@@ -616,24 +637,36 @@ components:
     # AUTH SCHEMAS
     RegisterInput:
       type: object
-      required: [username, email, password, phone]
+      required: [phone, password]
       properties:
-        username:
-          type: string
-        email:
+        phone:
           type: string
         password:
           type: string
+
+    RegisterPendingResponse:
+      type: object
+      required: [phone, demoCode]
+      properties:
         phone:
           type: string
-        referralCode:
-          type: ["string", "null"]
+        demoCode:
+          type: string
+
+    VerifyOtpInput:
+      type: object
+      required: [phone, code]
+      properties:
+        phone:
+          type: string
+        code:
+          type: string
 
     LoginInput:
       type: object
-      required: [email, password]
+      required: [phone, password]
       properties:
-        email:
+        phone:
           type: string
         password:
           type: string

@@ -7,10 +7,6 @@
  */
 
 export interface RegisterInput {
-  username: string;
-  email: string;
-  password: string;
   phone: string;
-  /** @nullable */
-  referralCode?: string | null;
+  password: string;
 }

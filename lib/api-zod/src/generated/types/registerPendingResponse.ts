@@ -6,7 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface LoginInput {
+export interface RegisterPendingResponse {
   phone: string;
-  password: string;
+  demoCode: string;
 }

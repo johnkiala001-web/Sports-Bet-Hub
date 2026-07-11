@@ -32,9 +32,8 @@ function LoginView() {
   });
 
   function onSubmit(values: z.infer<typeof loginSchema>) {
-    // API uses email field — pass phone as email for compatibility
     loginMutation.mutate(
-      { data: { email: values.phone, password: values.password } },
+      { data: { phone: values.phone, password: values.password } },
       {
         onSuccess: (res) => {
           login(res.token);

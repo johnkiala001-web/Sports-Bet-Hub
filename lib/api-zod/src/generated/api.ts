@@ -17,22 +17,43 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * @summary Register a new user
+ * @summary Register (phone + password) — returns demo OTP code
  */
 export const RegisterUserBody = zod.object({
-  "username": zod.string(),
-  "email": zod.string(),
-  "password": zod.string(),
   "phone": zod.string(),
-  "referralCode": zod.string().nullish()
+  "password": zod.string()
 })
 
 
 /**
- * @summary Login
+ * @summary Verify OTP to complete registration
+ */
+export const VerifyOtpBody = zod.object({
+  "phone": zod.string(),
+  "code": zod.string()
+})
+
+export const VerifyOtpResponse = zod.object({
+  "token": zod.string(),
+  "user": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "email": zod.string(),
+  "phone": zod.string(),
+  "role": zod.enum(['user', 'admin']),
+  "isSuspended": zod.boolean(),
+  "referralCode": zod.string().nullish(),
+  "avatarUrl": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+})
+
+
+/**
+ * @summary Login with phone + password
  */
 export const LoginUserBody = zod.object({
-  "email": zod.string(),
+  "phone": zod.string(),
   "password": zod.string()
 })
 
@@ -535,7 +556,7 @@ export const ListBonusesResponse = zod.array(ListBonusesResponseItem)
  * @summary Admin login
  */
 export const AdminLoginBody = zod.object({
-  "email": zod.string(),
+  "phone": zod.string(),
   "password": zod.string()
 })
 

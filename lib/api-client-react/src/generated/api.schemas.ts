@@ -10,16 +10,22 @@ export interface HealthStatus {
 }
 
 export interface RegisterInput {
-  username: string;
-  email: string;
-  password: string;
   phone: string;
-  /** @nullable */
-  referralCode?: string | null;
+  password: string;
+}
+
+export interface RegisterPendingResponse {
+  phone: string;
+  demoCode: string;
+}
+
+export interface VerifyOtpInput {
+  phone: string;
+  code: string;
 }
 
 export interface LoginInput {
-  email: string;
+  phone: string;
   password: string;
 }
 
