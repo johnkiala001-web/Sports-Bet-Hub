@@ -50,7 +50,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   const passwordHash = await hashPassword(password);
   const referralCode = generateReferralCode();
   const suffix = phone.slice(-8);
-  const username = `KB${suffix}`;
+  const username = `(254)${suffix}`;
   const email = `${phone}@kiala.bet`;
 
   const [user] = await db.insert(usersTable).values({
