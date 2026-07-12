@@ -18,8 +18,7 @@ export default function Home() {
     { query: { refetchInterval: 30_000, queryKey: getListMatchesQueryKey({ status: "upcoming", limit: 200 }) } }
   );
 
-  const now = new Date();
-  const upcomingMatches = (allUpcoming ?? []).filter(m => new Date(m.kickoff) > now);
+  const upcomingMatches = allUpcoming ?? [];
 
   // "Highlights" = first 10 matches, "Upcoming" = all
   const displayed = tab === "Highlights" ? upcomingMatches.slice(0, 10) : upcomingMatches;
