@@ -20,8 +20,7 @@ export default function Home() {
 
   const upcomingMatches = allUpcoming ?? [];
 
-  // "Highlights" = first 10 matches, "Upcoming" = all
-  const displayed = tab === "Highlights" ? upcomingMatches.slice(0, 10) : upcomingMatches;
+  const displayed = upcomingMatches;
 
   return (
     <div className="animate-in fade-in duration-300 pb-4">

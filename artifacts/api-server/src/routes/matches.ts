@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, inArray, notInArray, sql } from "drizzle-orm";
+import { eq, and, inArray, notInArray, sql, gte } from "drizzle-orm";
 import { db, matchesTable, leaguesTable, oddsMarketsTable, oddsSelectionsTable } from "@workspace/db";
 import { ListMatchesQueryParams } from "@workspace/api-zod";
 import { syncFixtures } from "../lib/apiFootball";
@@ -57,6 +57,12 @@ router.get("/matches", async (req, res): Promise<void> => {
   if (sport) conditions.push(eq(matchesTable.sport, sport));
   if (status) {
     conditions.push(eq(matchesTable.status, status));
+    // For upcoming matches, only show from yesterday onward (skip stale fixtures)
+    if (status === "upcoming") {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      conditions.push(gte(matchesTable.kickoff, yesterday));
+    }
   } else {
     conditions.push(notInArray(matchesTable.status, ["cancelled", "finished"]));
   }

@@ -6,6 +6,7 @@ const BASE_URL = "https://api.football-data.org/v4";
 
 // Competition codes available on the free tier that match requested leagues
 const COMPETITION_CODES = [
+  "WC",   // FIFA World Cup 2026 (in progress July 2026)
   "PL",   // Premier League
   "PD",   // La Liga (Primera Division)
   "SA",   // Serie A
@@ -190,18 +191,18 @@ export async function syncFixtures(): Promise<number> {
 
 let syncInterval: ReturnType<typeof setInterval> | null = null;
 
-export function startFixtureSync(intervalMs = 60_000): void {
+export function startFDFixtureSync(intervalMs = 30 * 60_000): void {
   // Run immediately on start
-  syncFixtures().catch((err) => logger.error({ err }, "Initial fixture sync failed"));
+  syncFixtures().catch((err) => logger.error({ err }, "Initial FD fixture sync failed"));
 
   syncInterval = setInterval(() => {
-    syncFixtures().catch((err) => logger.error({ err }, "Fixture sync failed"));
+    syncFixtures().catch((err) => logger.error({ err }, "FD fixture sync failed"));
   }, intervalMs);
 
-  logger.info({ intervalMs }, "Fixture sync scheduler started");
+  logger.info({ intervalMs }, "Football-Data fixture sync started");
 }
 
-export function stopFixtureSync(): void {
+export function stopFDFixtureSync(): void {
   if (syncInterval) {
     clearInterval(syncInterval);
     syncInterval = null;
