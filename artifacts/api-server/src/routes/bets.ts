@@ -127,6 +127,12 @@ router.post("/bets", requireAuth, async (req, res): Promise<void> => {
   });
 
   const allSelections = await db.select().from(betSelectionsTable).where(eq(betSelectionsTable.betId, bet.id));
+
+  // Award loyalty points: 1 point per KES 10 staked
+  const { awardLoyaltyPoints, trackWageringProgress } = await import("../lib/bonusEngine");
+  await awardLoyaltyPoints(userId, stake, bet.id).catch(() => {});
+  await trackWageringProgress(userId, stake).catch(() => {});
+
   res.status(201).json(formatBet(bet, allSelections));
 });
 

@@ -16,6 +16,9 @@ export const bonusesTable = pgTable("bonuses", {
   type: text("type").notNull(),
   amount: numeric("amount", { precision: 18, scale: 2 }).notNull(),
   isUsed: boolean("is_used").notNull().default(false),
+  wageringRequirement: numeric("wagering_requirement", { precision: 18, scale: 2 }),
+  wageringProgress: numeric("wagering_progress", { precision: 18, scale: 2 }).notNull().default("0.00"),
+  promotionId: integer("promotion_id"),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

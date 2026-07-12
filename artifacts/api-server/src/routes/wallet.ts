@@ -31,7 +31,8 @@ router.post("/wallet/deposit", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const { amount, method, phone: depositPhone } = parsed.data;
+  const { amount, method } = parsed.data;
+  const depositPhone = (req.body as Record<string, unknown>).phone as string | undefined;
 
   // For M-Pesa: validate the phone matches the user's registered phone
   if (method === "mpesa" && depositPhone) {

@@ -6,3 +6,6 @@ export * from "./bets";
 export * from "./jackpots";
 export * from "./misc";
 export * from "./otp";
+export * from "./withdrawals";
+export * from "./audit";
+export * from "./promotions";
