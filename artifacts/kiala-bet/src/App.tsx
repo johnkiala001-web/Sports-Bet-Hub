@@ -17,6 +17,7 @@ import Live from "@/pages/Live";
 import MatchDetail from "@/pages/MatchDetail";
 import Jackpot from "@/pages/Jackpot";
 import Casino from "@/pages/Casino";
+import Aviator from "@/pages/Aviator";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/ForgotPassword";
@@ -47,6 +48,7 @@ function PublicRoutes() {
         <Route path="/match/:matchId" component={MatchDetail} />
         <Route path="/jackpot" component={Jackpot} />
         <Route path="/casino" component={Casino} />
+        <Route path="/aviator" component={Aviator} />
         <Route path="/login" component={Login} />
         <Route path="/register" component={Register} />
         <Route path="/forgot-password" component={ForgotPassword} />

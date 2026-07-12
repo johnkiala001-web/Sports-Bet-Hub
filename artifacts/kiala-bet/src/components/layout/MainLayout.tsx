@@ -1,9 +1,14 @@
 import { Link, useLocation } from "wouter";
-import { Home, Activity, Receipt, ClipboardList, User as UserIcon } from "lucide-react";
+import { Home, Activity, Receipt, ClipboardList, User as UserIcon, Menu } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBetSlip } from "@/contexts/BetSlipContext";
 import { useListMatches, getListMatchesQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
+
+const CATEGORIES = [
+  { label: "Soccer", icon: "⚽", href: "/" },
+  { label: "Aviator", icon: "✈️", href: "/aviator" },
+];
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -18,7 +23,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     { status: "upcoming", limit: 200 },
     { query: { refetchInterval: 30_000, queryKey: getListMatchesQueryKey({ status: "upcoming", limit: 200 }) } }
   );
-  // Count DB-live + upcoming that have already passed kickoff (sync lag)
   const now = new Date();
   const liveIds = new Set((liveMatches ?? []).map(m => m.id));
   const justStartedCount = (upcomingForCount ?? []).filter(
@@ -33,48 +37,86 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     cn("flex flex-col items-center gap-0.5 transition-colors",
       isActive(path) ? "text-primary" : "text-muted-foreground hover:text-primary");
 
+  const isAviator = location.startsWith("/aviator");
+
   return (
     <div className="min-h-screen bg-background text-foreground pb-20 md:pb-0 font-sans">
-      {/* Desktop top header */}
-      <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center justify-between">
-          <Link href="/" className="font-bold text-xl text-primary tracking-tight">KialaBet</Link>
-          <nav className="hidden md:flex items-center gap-6">
-            <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">Home</Link>
-            <Link href="/live" className="text-sm font-medium transition-colors hover:text-primary flex items-center gap-1">
-              Live
-              {liveCount > 0 && (
-                <span className="bg-destructive text-destructive-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                  {liveCount}
-                </span>
-              )}
+      {/* Top Header */}
+      <header className="sticky top-0 z-40 w-full bg-[#1a1e24] border-b border-border/50">
+        <div className="flex h-14 items-center justify-between px-3 max-w-screen-xl mx-auto">
+          {/* Left: hamburger + logo */}
+          <div className="flex items-center gap-2">
+            <button className="text-muted-foreground hover:text-foreground p-1">
+              <Menu className="h-5 w-5" />
+            </button>
+            <Link href="/" className="font-black text-xl tracking-tight">
+              <span className="text-primary">Kiala</span>
+              <span className="text-white">Bet</span>
+              <span className="text-primary">!</span>
             </Link>
-            <Link href="/sports" className="text-sm font-medium transition-colors hover:text-primary">Sports</Link>
-            <Link href="/jackpot" className="text-sm font-medium transition-colors hover:text-primary">Jackpot</Link>
-          </nav>
-          <div className="flex items-center gap-4">
+          </div>
+
+          {/* Right: auth buttons */}
+          <div className="flex items-center gap-2">
             {isAuthenticated ? (
-              <Link href="/profile" className="text-sm font-medium transition-colors hover:text-primary">Profile</Link>
+              <Link
+                href="/wallet"
+                className="bg-primary hover:bg-primary/90 text-white font-bold text-sm px-4 py-1.5 rounded-full transition-colors"
+              >
+                Deposit
+              </Link>
             ) : (
-              <Link href="/login" className="text-sm font-medium transition-colors hover:text-primary">Login</Link>
+              <>
+                <Link
+                  href="/login"
+                  className="text-primary font-bold text-sm px-3 py-1.5 hover:underline"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/register"
+                  className="border border-primary text-primary hover:bg-primary hover:text-white font-bold text-sm px-4 py-1.5 rounded-full transition-colors"
+                >
+                  Register
+                </Link>
+              </>
             )}
           </div>
         </div>
+
+        {/* Category tabs — only on main pages (not Aviator's own layout) */}
+        {!isAviator && (
+          <div className="flex overflow-x-auto scrollbar-none border-t border-border/30 bg-[#141820]">
+            {CATEGORIES.map(cat => (
+              <Link
+                key={cat.href}
+                href={cat.href}
+                className={cn(
+                  "flex flex-col items-center gap-0.5 px-5 py-2 text-[11px] font-bold shrink-0 border-b-2 transition-colors",
+                  isActive(cat.href) && cat.href !== "/" ? "border-primary text-primary" :
+                  cat.href === "/" && location === "/" ? "border-primary text-primary" :
+                  "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <span className="text-lg leading-none">{cat.icon}</span>
+                <span>{cat.label}</span>
+              </Link>
+            ))}
+          </div>
+        )}
       </header>
 
-      <main className="container py-4 md:py-6">
+      <main className={cn("max-w-screen-xl mx-auto", isAviator ? "" : "px-3 py-3 md:py-4")}>
         {children}
       </main>
 
-      {/* Mobile bottom navigation — 5 tabs */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 h-[60px] w-full border-t border-border bg-background flex items-center justify-around px-2">
-        {/* Home */}
+      {/* Mobile bottom navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 h-[60px] w-full border-t border-border bg-[#1a1e24] flex items-center justify-around px-2">
         <Link href="/" className={navItem("/")}>
           <Home className="h-[22px] w-[22px]" />
           <span className="text-[10px] font-semibold">Home</span>
         </Link>
 
-        {/* Live */}
         <Link href="/live" className={navItem("/live")}>
           <div className="relative">
             <Activity className="h-[22px] w-[22px]" />
@@ -108,13 +150,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           <span className="text-[10px] font-semibold mt-0.5 text-muted-foreground">Slip</span>
         </button>
 
-        {/* My Bets */}
         <Link href="/bets" className={navItem("/bets")}>
           <ClipboardList className="h-[22px] w-[22px]" />
           <span className="text-[10px] font-semibold">My Bets</span>
         </Link>
 
-        {/* Profile */}
         <Link href={isAuthenticated ? "/profile" : "/login"} className={navItem("/profile")}>
           <UserIcon className="h-[22px] w-[22px]" />
           <span className="text-[10px] font-semibold">Profile</span>
