@@ -42,3 +42,4 @@ app.listen(port, (err) => {
   // Bet settlement: settle bets on finished matches (every 5 min)
   startBetSettlement(5 * 60_000);
 });
+// trigger redeploy
