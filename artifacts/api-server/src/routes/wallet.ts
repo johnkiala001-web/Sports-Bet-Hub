@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, walletsTable, transactionsTable } from "@workspace/db";
+import { db, walletsTable, transactionsTable, paymentLogsTable } from "@workspace/db";
 import { DepositFundsBody, ListTransactionsQueryParams } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth";
 
@@ -32,22 +32,22 @@ router.post("/wallet/deposit", requireAuth, async (req, res): Promise<void> => {
   }
 
   const { amount, method } = parsed.data;
-  const depositPhone = (req.body as Record<string, unknown>).phone as string | undefined;
+  const phone = (req.body as Record<string, unknown>).phone as string | undefined;
 
-  // For M-Pesa: validate the phone matches the user's registered phone
-  if (method === "mpesa" && depositPhone) {
-    const { usersTable } = await import("@workspace/db");
-    const [user] = await db.select({ phone: usersTable.phone }).from(usersTable).where(eq(usersTable.id, userId));
-    if (user) {
-      // Normalize both for comparison
-      const normalize = (p: string) => p.replace(/[\s\-\(\)]/g, "").replace(/^\+/, "");
-      const userPhone = normalize(user.phone);
-      const reqPhone  = normalize(depositPhone);
-      if (userPhone !== reqPhone && !reqPhone.endsWith(userPhone.slice(-9)) && !userPhone.endsWith(reqPhone.slice(-9))) {
-        res.status(400).json({ error: `You can only deposit from your registered M-Pesa number (${user.phone})` });
-        return;
-      }
-    }
+  if (method !== "mpesa") {
+    res.status(400).json({ error: "Only mpesa deposits are supported right now" });
+    return;
+  }
+  if (!phone) {
+    res.status(400).json({ error: "phone is required for mpesa deposits" });
+    return;
+  }
+
+  const { usersTable } = await import("@workspace/db");
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
   }
 
   const [wallet] = await db.select().from(walletsTable).where(eq(walletsTable.userId, userId));
@@ -56,27 +56,74 @@ router.post("/wallet/deposit", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const newBalance = (parseFloat(wallet.balance as string) + amount).toFixed(2);
-  const [updated] = await db
-    .update(walletsTable)
-    .set({ balance: newBalance })
-    .where(eq(walletsTable.userId, userId))
+  const [transaction] = await db
+    .insert(transactionsTable)
+    .values({
+      userId,
+      type: "deposit",
+      amount: amount.toFixed(2),
+      status: "pending",
+      description: "M-Pesa deposit - awaiting confirmation",
+    })
     .returning();
 
-  await db.insert(transactionsTable).values({
-    userId,
-    type: "deposit",
-    amount: amount.toFixed(2),
-    status: "completed",
-    description: `Demo deposit via ${method.toUpperCase()}`,
-  });
+  const [paymentLog] = await db
+    .insert(paymentLogsTable)
+    .values({
+      userId,
+      transactionId: transaction.id,
+      type: "deposit",
+      amount: amount.toFixed(2),
+      provider: "mpesa",
+      status: "pending",
+    })
+    .returning();
+
+  try {
+    const { initiateSiteADeposit } = await import("../lib/paymentGateway");
+    const gatewayResult = await initiateSiteADeposit({
+      transactionId: transaction.id,
+      userId,
+      username: user.username,
+      email: user.email,
+      amount,
+      phone,
+    });
+
+    await db
+      .update(paymentLogsTable)
+      .set({
+        reference: gatewayResult.checkoutRequestId ?? null,
+        rawResponse: JSON.stringify(gatewayResult),
+      })
+      .where(eq(paymentLogsTable.id, paymentLog.id));
+
+    res.json({
+      transactionId: transaction.id,
+      status: "pending",
+      message: "Deposit request sent. Check your phone to complete payment.",
+    });
+  } catch (err) {
+    res.status(502).json({ error: "Failed to initiate deposit. Please try again." });
+  }
+});
+
+router.get("/wallet/deposit/status/:transactionId", requireAuth, async (req, res): Promise<void> => {
+  const userId = (req as typeof req & { userId: number }).userId;
+  const transactionId = parseInt(req.params.transactionId as string, 10);
+
+  const [transaction] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, transactionId));
+  if (!transaction || transaction.userId !== userId) {
+    res.status(404).json({ error: "Transaction not found" });
+    return;
+  }
 
   res.json({
-    id: updated.id,
-    userId: updated.userId,
-    balance: parseFloat(updated.balance as string),
-    bonusBalance: parseFloat(updated.bonusBalance as string),
-    currency: updated.currency,
+    transactionId: transaction.id,
+    status: transaction.status,
+    amount: parseFloat(transaction.amount as string),
+    description: transaction.description,
+    createdAt: transaction.createdAt instanceof Date ? transaction.createdAt.toISOString() : transaction.createdAt,
   });
 });
 

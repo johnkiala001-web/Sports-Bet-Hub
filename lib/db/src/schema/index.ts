@@ -9,3 +9,4 @@ export * from "./otp";
 export * from "./withdrawals";
 export * from "./audit";
 export * from "./promotions";
+export * from "./webhookLogs";
