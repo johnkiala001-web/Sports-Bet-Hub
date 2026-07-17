@@ -19,6 +19,18 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+
+    try {
+      const { db, matchesTable, oddsMarketsTable, oddsSelectionsTable } = await import("@workspace/db");
+      console.log("Wiping stale match cache...");
+      await db.delete(oddsSelectionsTable);
+      await db.delete(oddsMarketsTable);
+      await db.delete(matchesTable);
+      console.log("Database cleared successfully!");
+    } catch (err) {
+      console.error("Auto-clear failed:", err);
+    }
+    
 app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
