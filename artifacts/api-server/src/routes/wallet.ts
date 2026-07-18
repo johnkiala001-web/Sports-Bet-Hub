@@ -32,7 +32,14 @@ router.post("/wallet/deposit", requireAuth, async (req, res): Promise<void> => {
   }
 
   const { amount, method } = parsed.data;
-  const phone = (req.body as Record<string, unknown>).phone as string | undefined;
+  
+  let phone = (req.body as Record<string, unknown>).phone as string | undefined;
+  if (phone && phone.startsWith('0')) {
+    phone = '254' + phone.slice(1);
+  } else if (phone && phone.startsWith('+')) {
+    phone = phone.replace('+', '');
+  }
+  
 
   if (method !== "mpesa") {
     res.status(400).json({ error: "Only mpesa deposits are supported right now" });
