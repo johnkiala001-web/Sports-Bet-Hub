@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useGetWallet, useListTransactions, useDepositFunds, getGetWalletQueryKey, getListTransactionsQueryKey } from "@workspace/api-client-react";
+
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,11 +29,11 @@ export default function Wallet() {
   }, [isAuthenticated, authLoading, setLocation]);
 
   const { data: wallet, isLoading: walletLoading } = useGetWallet({
-    query: { enabled: isAuthenticated, queryKey: getGetWalletQueryKey() }
+    query: { enabled: isAuthenticated, queryKey: ["wallet"] }
   });
 
   const { data: transactions, isLoading: txLoading } = useListTransactions({ limit: 20 }, {
-    query: { enabled: isAuthenticated, queryKey: getListTransactionsQueryKey({ limit: 20 }) }
+    query: { enabled: isAuthenticated, queryKey: ["transactions"] }
   });
 
   const depositMutation = useDepositFunds();
@@ -105,8 +105,8 @@ export default function Wallet() {
         onSuccess: () => {
           toast({ title: "Demo Deposit Successful", description: `KES ${val.toFixed(2)} added.` });
           setAmount("");
-          queryClient.invalidateQueries({ queryKey: getGetWalletQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey({ limit: 20 }) });
+          queryClient.invalidateQueries({ queryKey: ["wallet"] });
+          queryClient.invalidateQueries({ queryKey: ["transactions"] });
         },
         onError: () => toast({ title: "Deposit Failed", variant: "destructive" })
       }
