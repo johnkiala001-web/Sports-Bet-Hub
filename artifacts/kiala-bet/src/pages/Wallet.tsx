@@ -75,15 +75,17 @@ export default function Wallet() {
       if (!res.ok) throw new Error("Deposit failed");
       return res.json();
     })
+    
     .then(() => {
       setMpesaStep("success");
-      queryClient.invalidateQueries({ queryKey: getGetWalletQueryKey() });
-      queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey({ limit: 20 }) });
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       setTimeout(() => {
         setMpesaStep("idle");
         setAmount("");
       }, 3000);
     })
+  
     .catch(err => {
       console.error(err);
       setMpesaStep("idle");
