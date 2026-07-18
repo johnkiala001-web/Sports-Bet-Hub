@@ -4,8 +4,8 @@ import App from './App'
 import './index.css'
 import { setBaseUrl } from '@workspace/api-zod'
 
-// Strictly point to your live Render Backend URL so Vercel can talk to it
-setBaseUrl("https://onrender.com");
+// Strictly point to your unique live Render Backend application URL
+setBaseUrl("https://sports-bet-hub.onrender.com");
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
