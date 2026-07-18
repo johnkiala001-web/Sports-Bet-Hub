@@ -5,6 +5,7 @@ import { Smartphone, Wallet as WalletIcon, ArrowDownCircle, ArrowUpCircle, Check
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "../hooks/use-toast";
+import { customFetch } from "@workspace/api-client-react";
 
 export default function Wallet() {
   const queryClient = useQueryClient();
@@ -31,22 +32,16 @@ export default function Wallet() {
 
     setMpesaStep("waiting_pin");
     await new Promise(r => setTimeout(r, 3000));
-
-    fetch("https://onrender.com", {
+    customFetch("/api/wallet/deposit", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${localStorage.getItem("token") || ""}`
       },
       body: JSON.stringify({
         amount: val,
         method: "mpesa",
         phone: normalizedPhone
       })
-    })
-    .then(res => {
-      if (!res.ok) throw new Error("Deposit failed");
-      return res.json();
     })
     .then(() => {
       setMpesaStep("success");
@@ -57,7 +52,7 @@ export default function Wallet() {
         setAmount("");
       }, 3000);
     })
-    .catch(err => {
+    .catch((err: unknown) => {
       console.error(err);
       toast({ title: "Deposit initialization failed", variant: "destructive" });
       setMpesaStep("idle");
