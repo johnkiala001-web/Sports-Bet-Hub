@@ -2,9 +2,6 @@ import { logger } from "./logger";
 
 export interface InitiateDepositParams {
   transactionId: number;
-  userId: number;
-  username: string;
-  email: string;
   amount: number;
   phone: string;
 }
@@ -12,13 +9,18 @@ export interface InitiateDepositParams {
 export interface SiteADepositResult {
   checkoutRequestId?: string;
   merchantRequestId?: string;
-  gatewayReference?: string;
-  message?: string;
+  status?: string;
 }
 
 /**
  * The ONLY place that talks to Site A. Site B never contacts Safaricom
  * Daraja directly — Site A owns that integration.
+ *
+ * Site A's real contract (as deployed):
+ *   - Auth via X-API-Key header (not Authorization: Bearer)
+ *   - Body: { amount, phone_number, account_reference, transaction_desc? }
+ *   - Success (200): { merchant_request_id, checkout_request_id, status }
+ *   - Failure (4xx/5xx): { error: string }
  */
 export async function initiateSiteADeposit(params: InitiateDepositParams): Promise<SiteADepositResult> {
   const baseUrl = process.env["SITE_A_API_URL"];
@@ -37,17 +39,13 @@ export async function initiateSiteADeposit(params: InitiateDepositParams): Promi
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        "X-API-Key": apiKey,
       },
       body: JSON.stringify({
-        transaction_id: params.transactionId,
-        user_id: params.userId,
-        username: params.username,
-        email: params.email,
         amount: params.amount,
-        phone: params.phone,
-        currency: "KES",
-        callback_data: { wallet: "main" },
+        phone_number: params.phone,
+        account_reference: String(params.transactionId),
+        transaction_desc: "Deposit",
       }),
       signal: controller.signal,
     });
@@ -67,13 +65,12 @@ export async function initiateSiteADeposit(params: InitiateDepositParams): Promi
 
   if (!res.ok) {
     logger.error({ status: res.status, body, transactionId: params.transactionId }, "Site A rejected deposit");
-    throw new Error((body["message"] as string) || "Payment gateway rejected the request");
+    throw new Error((body["error"] as string) || "Payment gateway rejected the request");
   }
 
   return {
     checkoutRequestId: body["checkout_request_id"] as string | undefined,
     merchantRequestId: body["merchant_request_id"] as string | undefined,
-    gatewayReference: (body["gateway_reference"] as string | undefined) ?? (body["reference"] as string | undefined),
-    message: body["message"] as string | undefined,
+    status: body["status"] as string | undefined,
   };
 }

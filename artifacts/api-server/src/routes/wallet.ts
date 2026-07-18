@@ -90,9 +90,6 @@ router.post("/wallet/deposit", requireAuth, async (req, res): Promise<void> => {
     const { initiateSiteADeposit } = await import("../lib/paymentGateway");
     const gatewayResult = await initiateSiteADeposit({
       transactionId: transaction.id,
-      userId,
-      username: user.username,
-      email: user.email,
       amount,
       phone,
     });
