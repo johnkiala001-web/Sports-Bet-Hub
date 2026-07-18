@@ -59,7 +59,7 @@ export default function Wallet() {
     await new Promise(r => setTimeout(r, 3000));
 
     depositMutation.mutate(
-      { data: { amount: val, method: "mpesa" }, phone: mpesaPhone },
+      { data: { amount: val, method: "mpesa", phone: mpesaPhone } },
       {
         onSuccess: () => {
           setMpesaStep("success");
