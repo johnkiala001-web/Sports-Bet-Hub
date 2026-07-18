@@ -59,7 +59,7 @@ export default function Wallet() {
     await new Promise(r => setTimeout(r, 3000));
 
     
-    fetch("https://onrender.com", {
+    fetch("https://sports-bet-hub.onrender.com", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
