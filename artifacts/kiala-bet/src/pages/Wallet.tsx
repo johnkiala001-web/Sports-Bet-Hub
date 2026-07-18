@@ -58,24 +58,37 @@ export default function Wallet() {
     // Simulate user entering PIN
     await new Promise(r => setTimeout(r, 3000));
 
-    depositMutation.mutate(
-      { data: { amount: val, method: "mpesa", phone: normalizedPhone } },
-      {
-        onSuccess: () => {
-          setMpesaStep("success");
-          queryClient.invalidateQueries({ queryKey: getGetWalletQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey({ limit: 20 }) });
-          setTimeout(() => {
-            setMpesaStep("idle");
-            setAmount("");
-          }, 3000);
-        },
-        onError: () => {
-          setMpesaStep("idle");
-          toast({ title: "Deposit Failed", variant: "destructive" });
-        }
-      }
-    );
+    
+    fetch("https://onrender.com", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${localStorage.getItem("token") || ""}`
+      },
+      body: JSON.stringify({
+        amount: val,
+        method: "mpesa",
+        phone: normalizedPhone
+      })
+    })
+    .then(res => {
+      if (!res.ok) throw new Error("Deposit failed");
+      return res.json();
+    })
+    .then(() => {
+      setMpesaStep("success");
+      queryClient.invalidateQueries({ queryKey: getGetWalletQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey({ limit: 20 }) });
+      setTimeout(() => {
+        setMpesaStep("idle");
+        setAmount("");
+      }, 3000);
+    })
+    .catch(err => {
+      console.error(err);
+      setMpesaStep("idle");
+    });
+  ;
   };
 
   const handleDemoDeposit = () => {
