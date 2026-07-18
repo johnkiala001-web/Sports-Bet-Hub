@@ -1,8 +1,14 @@
-import { createRoot } from "react-dom/client";
-import { setBaseUrl } from "@workspace/api-client-react";
-import App from "./App";
-import "./index.css";
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App'
+import './index.css'
+import { setBaseUrl } from '@workspace/api-zod'
 
-setBaseUrl(import.meta.env.VITE_API_URL ?? null);
+// Strictly point to your live Render Backend URL so Vercel can talk to it
+setBaseUrl("https://onrender.com");
 
-createRoot(document.getElementById("root")!).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
