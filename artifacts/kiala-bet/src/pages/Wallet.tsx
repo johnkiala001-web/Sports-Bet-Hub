@@ -32,7 +32,7 @@ export default function Wallet() {
     setMpesaStep("waiting_pin");
     await new Promise(r => setTimeout(r, 3000));
 
-    fetch("https://sports-bet-hub.onrender.com", {
+    fetch("https://onrender.com", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
