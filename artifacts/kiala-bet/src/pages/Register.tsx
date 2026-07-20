@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useRegisterUser } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function Register() {
+  const [_, setLocation] = useLocation();
   const { login } = useAuth();
   const { toast } = useToast();
   const registerMutation = useRegisterUser();
@@ -45,7 +46,8 @@ export default function Register() {
       {
         onSuccess: (res) => {
           login(res.token);
-          toast({ title: "Welcome to KialaBet! 🎉", description: "KES 500 demo balance added." });
+          toast({ title: "Welcome to KialaBet! 🎉", description: "Your account has been created." });
+          setLocation("/dashboard");
         },
         onError: (err: any) => {
           const msg = err?.response?.data?.error || err?.message || "Registration failed";

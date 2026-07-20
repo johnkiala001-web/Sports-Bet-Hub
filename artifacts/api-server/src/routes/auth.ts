@@ -63,26 +63,19 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     role: "user",
   }).returning();
 
-  // Create wallet with welcome balance
+  // Create wallet
   await db.insert(walletsTable).values({
     userId: user.id,
-    balance: "500.00",
-    bonusBalance: "100.00",
+    balance: "0.00",
+    bonusBalance: "0.00",
     currency: "KES",
   });
 
   await db.insert(notificationsTable).values({
     userId: user.id,
     title: "Welcome to KialaBet!",
-    message: "Your account is ready. You have KES 500 demo balance and KES 100 bonus to start betting!",
+    message: "Your account is ready. Start betting now!",
     type: "info",
-  });
-
-  await db.insert(bonusesTable).values({
-    userId: user.id,
-    type: "welcome",
-    amount: "100.00",
-    isUsed: false,
   });
 
   req.log.info({ phone, userId: user.id }, "User registered");
@@ -151,23 +144,16 @@ router.post("/auth/verify-otp", async (req, res): Promise<void> => {
   if (!existingWallet) {
     await db.insert(walletsTable).values({
       userId: user.id,
-      balance: "500.00",
-      bonusBalance: "100.00",
+      balance: "0.00",
+      bonusBalance: "0.00",
       currency: "KES",
     });
 
     await db.insert(notificationsTable).values({
       userId: user.id,
       title: "Welcome to KialaBet!",
-      message: "Your account is verified. You have KES 500 demo balance to start betting!",
+      message: "Your account is verified. Start betting now!",
       type: "info",
-    });
-
-    await db.insert(bonusesTable).values({
-      userId: user.id,
-      type: "welcome",
-      amount: "100.00",
-      isUsed: false,
     });
   }
 
