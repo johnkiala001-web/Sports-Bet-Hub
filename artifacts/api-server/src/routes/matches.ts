@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, and, inArray, notInArray, sql, gte } from "drizzle-orm";
 import { db, matchesTable, leaguesTable, oddsMarketsTable, oddsSelectionsTable } from "@workspace/db";
 import { ListMatchesQueryParams } from "@workspace/api-zod";
-import { syncFixtures } from "../lib/apiFootball";
+import { syncFixtures, generateMarketsForMatch } from "../lib/apiFootball";
 import { requireAdmin } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -163,6 +163,39 @@ router.post("/matches/sync", requireAdmin, async (_req, res): Promise<void> => {
     res.json({ synced: count, message: `Synced ${count} fixtures` });
   } catch (err) {
     res.status(500).json({ error: "Sync failed" });
+  }
+});
+
+// One-off backfill: generate markets for any match missing them (admin only)
+router.post("/matches/backfill-markets", requireAdmin, async (_req, res): Promise<void> => {
+  try {
+    const allMatches = await db.select().from(matchesTable);
+    let processed = 0;
+    let skipped = 0;
+
+    for (const m of allMatches) {
+      const before = await db
+        .select({ id: oddsMarketsTable.id })
+        .from(oddsMarketsTable)
+        .where(eq(oddsMarketsTable.matchId, m.id))
+        .limit(1);
+
+      if (before.length > 0) {
+        skipped++;
+        continue;
+      }
+
+      const h = parseFloat(m.homeOdds as string);
+      const d = parseFloat(m.drawOdds as string);
+      const a = parseFloat(m.awayOdds as string);
+
+      await generateMarketsForMatch(m.id, m.id, h, d, a);
+      processed++;
+    }
+
+    res.json({ total: allMatches.length, processed, skipped });
+  } catch (err) {
+    res.status(500).json({ error: "Backfill failed", details: String(err) });
   }
 });
 

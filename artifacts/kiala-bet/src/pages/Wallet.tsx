@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useGetWallet, useListTransactions, useGetProfile } from "@workspace/api-client-react";
+import { useGetWallet, useListTransactions, useGetProfile, getListTransactionsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Smartphone, Wallet as WalletIcon, ArrowDownCircle, ArrowUpCircle, CheckCircle2, Loader2, ChevronDown, ChevronUp, Clock, XCircle } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -32,7 +32,16 @@ function StatusBadge({ status }: { status: string }) {
 export default function Wallet() {
   const queryClient = useQueryClient();
   const { data: wallet, isLoading: walletLoading } = useGetWallet();
-  const { data: transactions, isLoading: txLoading } = useListTransactions({ limit: 20 });
+  const { data: transactions, isLoading: txLoading } = useListTransactions(
+    { limit: 20 },
+    { query: {
+      queryKey: getListTransactionsQueryKey({ limit: 20 }),
+      refetchInterval: (query) => {
+      const list = query.state.data as any[] | undefined;
+      const hasPending = list?.some((tx) => tx.status === "pending");
+      return hasPending ? 3000 : false;
+    } } }
+  );
   const { data: profile, isLoading: profileLoading } = useGetProfile();
 
   const [amount, setAmount] = useState<string>("");

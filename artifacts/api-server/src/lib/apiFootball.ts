@@ -509,7 +509,7 @@ function buildMarkets(fixtureId: number, h: number, d: number, a: number) {
 }
 
 // Generate and persist all 40 markets for a match (idempotent — skips if already generated)
-async function generateMarketsForMatch(matchId: number, fixtureId: number, h: number, d: number, a: number): Promise<void> {
+export async function generateMarketsForMatch(matchId: number, fixtureId: number, h: number, d: number, a: number): Promise<void> {
   const existing = await db
     .select({ id: oddsMarketsTable.id })
     .from(oddsMarketsTable)
