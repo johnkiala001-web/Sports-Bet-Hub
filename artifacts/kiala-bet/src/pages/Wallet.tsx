@@ -1,11 +1,33 @@
 import React, { useState } from "react";
 import { useGetWallet, useListTransactions, useGetProfile } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Smartphone, Wallet as WalletIcon, ArrowDownCircle, ArrowUpCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { Smartphone, Wallet as WalletIcon, ArrowDownCircle, ArrowUpCircle, CheckCircle2, Loader2, ChevronDown, ChevronUp, Clock, XCircle } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "../hooks/use-toast";
 import { customFetch } from "@workspace/api-client-react";
+
+function StatusBadge({ status }: { status: string }) {
+  if (status === "completed") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-500 bg-green-500/10 border border-green-500/30 rounded-full px-2 py-0.5">
+        <CheckCircle2 className="h-3 w-3" /> Completed
+      </span>
+    );
+  }
+  if (status === "failed") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-500 bg-red-500/10 border border-red-500/30 rounded-full px-2 py-0.5">
+        <XCircle className="h-3 w-3" /> Failed
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-semibold text-yellow-500 bg-yellow-500/10 border border-yellow-500/30 rounded-full px-2 py-0.5">
+      <Clock className="h-3 w-3" /> Pending
+    </span>
+  );
+}
 
 export default function Wallet() {
   const queryClient = useQueryClient();
@@ -15,6 +37,7 @@ export default function Wallet() {
 
   const [amount, setAmount] = useState<string>("");
   const [mpesaStep, setMpesaStep] = useState<"idle" | "waiting_pin" | "success">("idle");
+  const [showAllTx, setShowAllTx] = useState(false);
 
   const registeredPhone = profile?.phone ?? "";
 
@@ -72,6 +95,9 @@ export default function Wallet() {
     );
   }
 
+  const sortedTx = transactions ? [...transactions].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
+  const visibleTx = showAllTx ? sortedTx : sortedTx.slice(0, 1);
+
   return (
     <div className="p-4 max-w-xl mx-auto space-y-6">
       <div className="bg-card p-6 rounded-xl border flex items-center justify-between">
@@ -124,19 +150,32 @@ export default function Wallet() {
       </div>
 
       <div className="bg-card p-6 rounded-xl border space-y-4">
-        <p className="font-bold text-lg flex items-center gap-2"><ArrowUpCircle className="h-5 w-5 text-zinc-400"/> Transaction History</p>
+        <div className="flex items-center justify-between">
+          <p className="font-bold text-lg flex items-center gap-2"><ArrowUpCircle className="h-5 w-5 text-zinc-400"/> Transaction History</p>
+          {sortedTx.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setShowAllTx(v => !v)}
+              className="text-xs text-zinc-400 hover:text-zinc-200 flex items-center gap-1"
+            >
+              {showAllTx ? "Show latest only" : "View all"}
+              {showAllTx ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
+          )}
+        </div>
         <div className="space-y-2">
-          {transactions?.map((tx: any) => (
+          {visibleTx.length > 0 ? visibleTx.map((tx: any) => (
             <div key={tx.id} className="flex justify-between items-center p-3 rounded-lg bg-zinc-900 border text-sm">
-              <div>
+              <div className="space-y-1">
                 <p className="font-medium capitalize">{tx.type} via M-Pesa</p>
                 <p className="text-xs text-zinc-500">{new Date(tx.createdAt).toLocaleDateString()}</p>
+                <StatusBadge status={tx.status} />
               </div>
-              <p className={`font-bold ${tx.type === "deposit" ? "text-green-500" : "text-zinc-400"}`}>
+              <p className={`font-bold ${tx.status === "completed" ? "text-green-500" : tx.status === "failed" ? "text-red-500" : "text-yellow-500"}`}>
                 {tx.type === "deposit" ? "+" : "-"}KES {parseFloat(tx.amount).toFixed(2)}
               </p>
             </div>
-          )) ?? <p className="text-xs text-zinc-500 text-center py-4">No recent transactions found.</p>}
+          )) : <p className="text-xs text-zinc-500 text-center py-4">No recent transactions found.</p>}
         </div>
       </div>
     </div>
