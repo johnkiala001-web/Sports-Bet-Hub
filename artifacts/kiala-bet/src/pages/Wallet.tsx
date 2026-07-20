@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useGetWallet, useListTransactions } from "@workspace/api-client-react";
+import { useGetWallet, useListTransactions, useGetProfile } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Smartphone, Wallet as WalletIcon, ArrowDownCircle, ArrowUpCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -11,10 +11,12 @@ export default function Wallet() {
   const queryClient = useQueryClient();
   const { data: wallet, isLoading: walletLoading } = useGetWallet();
   const { data: transactions, isLoading: txLoading } = useListTransactions({ limit: 20 });
+  const { data: profile, isLoading: profileLoading } = useGetProfile();
 
   const [amount, setAmount] = useState<string>("");
-  const [phone, setPhone] = useState<string>("");
   const [mpesaStep, setMpesaStep] = useState<"idle" | "waiting_pin" | "success">("idle");
+
+  const registeredPhone = profile?.phone ?? "";
 
   const handleMpesaDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,9 +26,8 @@ export default function Wallet() {
       return;
     }
 
-    const normalizedPhone = phone.replace(/\s/g, "");
-    if (!normalizedPhone) {
-      toast({ title: "Phone number is required", variant: "destructive" });
+    if (!registeredPhone) {
+      toast({ title: "No registered phone number found on your account", variant: "destructive" });
       return;
     }
 
@@ -40,7 +41,7 @@ export default function Wallet() {
       body: JSON.stringify({
         amount: val,
         method: "mpesa",
-        phone: normalizedPhone
+        phone: registeredPhone
       })
     })
     .then(() => {
@@ -59,7 +60,7 @@ export default function Wallet() {
     });
   };
 
-  if (walletLoading || txLoading) {
+  if (walletLoading || txLoading || profileLoading) {
     return (
       <div className="flex items-center justify-center p-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -79,7 +80,7 @@ export default function Wallet() {
 
       <div className="bg-card p-6 rounded-xl border space-y-4">
         <p className="font-bold text-lg flex items-center gap-2"><ArrowDownCircle className="h-5 w-5 text-primary"/> Deposit Funds</p>
-        
+
         {mpesaStep === "idle" && (
           <form onSubmit={handleMpesaDeposit} className="space-y-4">
             <div className="space-y-2">
@@ -88,9 +89,12 @@ export default function Wallet() {
             </div>
             <div className="space-y-2">
               <label className="text-xs text-zinc-400">MPESA PHONE NUMBER</label>
-              <Input type="tel" placeholder="e.g. 0748119367" value={phone} onChange={e => setPhone(e.target.value)} />
+              <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-zinc-900 border text-sm text-zinc-300">
+                <Smartphone className="h-4 w-4 text-zinc-500" />
+                {registeredPhone || "No phone on file"}
+              </div>
             </div>
-            <Button type="submit" className="w-full font-bold">Deposit via M-Pesa</Button>
+            <Button type="submit" className="w-full font-bold" disabled={!registeredPhone}>Deposit via M-Pesa</Button>
           </form>
         )}
 
@@ -99,7 +103,7 @@ export default function Wallet() {
             <Smartphone className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
             <div>
               <p className="font-bold text-sm text-yellow-500">Check your phone!</p>
-              <p className="text-xs text-zinc-400 mt-0.5">An M-Pesa STK push has been sent to {phone}. Enter your PIN to approve the payment of KES {amount}.</p>
+              <p className="text-xs text-zinc-400 mt-0.5">An M-Pesa STK push has been sent to {registeredPhone}. Enter your PIN to approve the payment of KES {amount}.</p>
             </div>
           </div>
         )}
