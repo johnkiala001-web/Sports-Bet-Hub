@@ -18,6 +18,10 @@ export default function Wallet() {
 
   const registeredPhone = profile?.phone ?? "";
 
+  const maskedPhone = registeredPhone.length > 9
+    ? `${registeredPhone.slice(0, 6)}${"•".repeat(registeredPhone.length - 9)}${registeredPhone.slice(-3)}`
+    : registeredPhone;
+
   const handleMpesaDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
     const val = parseFloat(amount);
@@ -91,7 +95,7 @@ export default function Wallet() {
               <label className="text-xs text-zinc-400">MPESA PHONE NUMBER</label>
               <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-zinc-900 border text-sm text-zinc-300">
                 <Smartphone className="h-4 w-4 text-zinc-500" />
-                {registeredPhone || "No phone on file"}
+                {maskedPhone || "No phone on file"}
               </div>
             </div>
             <Button type="submit" className="w-full font-bold" disabled={!registeredPhone}>Deposit via M-Pesa</Button>
