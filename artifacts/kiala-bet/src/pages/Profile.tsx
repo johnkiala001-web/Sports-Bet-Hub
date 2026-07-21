@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useLoginUser, useGetWallet, useDepositFunds, getGetWalletQueryKey, getListTransactionsQueryKey } from "@workspace/api-client-react";
+import { useLoginUser, useGetWallet, getGetWalletQueryKey, getListTransactionsQueryKey, customFetch } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -158,29 +158,33 @@ const QUICK_AMOUNTS = [100, 200, 500, 1000];
 
 function DepositSection() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [amount, setAmount] = useState<number>(0);
   const [phone, setPhone] = useState("");
   const [step, setStep] = useState<"idle" | "sending" | "pin" | "done">("idle");
-  const depositMutation = useDepositFunds();
 
   const adjust = (delta: number) => setAmount(prev => Math.max(0, prev + delta));
 
   const handleMpesa = async () => {
     if (amount < 10) { toast({ title: "Minimum deposit is KES 10", variant: "destructive" }); return; }
+    if (!user?.phone) { toast({ title: "No registered phone number found on your account", variant: "destructive" }); return; }
     setStep("sending");
     await new Promise(r => setTimeout(r, 1100));
     setStep("pin");
     await new Promise(r => setTimeout(r, 3000));
-    depositMutation.mutate({ data: { amount, method: "mpesa" } }, {
-      onSuccess: () => {
+    customFetch("/api/wallet/deposit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount, method: "mpesa", phone: user.phone }),
+    })
+      .then(() => {
         setStep("done");
         queryClient.invalidateQueries({ queryKey: getGetWalletQueryKey() });
         queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey({ limit: 20 }) });
         setTimeout(() => { setStep("idle"); setAmount(0); }, 3000);
-      },
-      onError: () => { setStep("idle"); toast({ title: "Deposit failed", variant: "destructive" }); }
-    });
+      })
+      .catch(() => { setStep("idle"); toast({ title: "Deposit failed", variant: "destructive" }); });
   };
 
   return (
