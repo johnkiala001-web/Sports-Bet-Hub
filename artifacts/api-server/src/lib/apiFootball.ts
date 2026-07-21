@@ -734,7 +734,8 @@ export async function syncFixtures(): Promise<number> {
           ? (f.goals.away ?? null)
           : null;
 
-      const odds = placeholderOdds(f.fixture.id, f.league.id);
+      const realOdds = isFeatured ? await fetchOdds(f.fixture.id) : null;
+      const odds = realOdds ?? placeholderOdds(f.fixture.id, f.league.id);
 
       const [row] = await db
         .insert(matchesTable)
