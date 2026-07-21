@@ -1,4 +1,5 @@
 import { db, matchesTable } from "@workspace/db";
+import { generateMarketsForMatch } from "./apiFootball";
 import { eq, inArray } from "drizzle-orm";
 import { logger } from "./logger";
 
@@ -57,12 +58,13 @@ function teamName(team: { name: string; shortName?: string }): string {
 }
 
 // Generate realistic placeholder odds based on competition prestige
-function placeholderOdds(competition: string): { home: number; draw: number; away: number } {
-  const seed = competition.charCodeAt(0) + competition.charCodeAt(1 % competition.length);
-  const home = 1.5 + (seed % 20) * 0.1;
-  const draw = 3.0 + (seed % 10) * 0.1;
-  const away = 2.0 + (seed % 15) * 0.1;
-  return { home: parseFloat(home.toFixed(2)), draw: parseFloat(draw.toFixed(2)), away: parseFloat(away.toFixed(2)) };
+function placeholderOdds(matchId: number, competition: string): { home: number; draw: number; away: number } {
+  const compSeed = competition.charCodeAt(0) + competition.charCodeAt(1 % competition.length);
+  const seed = (matchId + compSeed * 17) % 100;
+  const home = parseFloat((1.50 + (seed % 25) * 0.08).toFixed(2));
+  const draw = parseFloat((3.00 + (seed % 15) * 0.12).toFixed(2));
+  const away = parseFloat((1.80 + (seed % 20) * 0.10).toFixed(2));
+  return { home, draw, away };
 }
 
 async function fetchMatchesForCompetition(code: string, dateFrom: string, dateTo: string): Promise<FDMatch[]> {
@@ -135,7 +137,7 @@ export async function syncFixtures(): Promise<number> {
     try {
       const externalId = `fd-${m.id}`;
       const status = mapStatus(m.status);
-      const odds = placeholderOdds(m.competition.code);
+      const odds = placeholderOdds(m.id, m.competition.code);
       const homeScore = m.score?.fullTime?.home ?? null;
       const awayScore = m.score?.fullTime?.away ?? null;
 
@@ -149,7 +151,7 @@ export async function syncFixtures(): Promise<number> {
 
       const isFeatured = ["PL", "PD", "SA", "BL1", "FL1", "CL"].includes(m.competition.code);
 
-      await db
+      const [row] = await db
         .insert(matchesTable)
         .values({
           externalId,
@@ -175,9 +177,17 @@ export async function syncFixtures(): Promise<number> {
             homeScore: status === "finished" ? homeScore : (status === "live" ? liveHome : null),
             awayScore: status === "finished" ? awayScore : (status === "live" ? liveAway : null),
             minute: status === "live" ? (m.minute ?? null) : null,
+            homeOdds: odds.home.toString(),
+            drawOdds: odds.draw.toString(),
+            awayOdds: odds.away.toString(),
             updatedAt: new Date(),
           },
-        });
+        })
+        .returning({ id: matchesTable.id });
+
+      if (row) {
+        await generateMarketsForMatch(row.id, m.id, odds.home, odds.draw, odds.away);
+      }
 
       upserted++;
     } catch (err) {

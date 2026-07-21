@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startFixtureSync, startLiveSync } from "./lib/apiFootball";
+import { startFDFixtureSync } from "./lib/footballData";
 import { startBetSettlement } from "./lib/betSettlement";
 import { startMarketLock } from "./lib/marketLock";
 
@@ -31,6 +32,7 @@ app.listen(port, (err) => {
   startFixtureSync(20 * 60_000);
 
   // Football-Data.org: World Cup + major leagues, every 30 min
+  startFDFixtureSync(30 * 60_000);
 
   // Live-only sync every 3 minutes (1 req/cycle) for real-time score + status updates
   startLiveSync(3 * 60_000);
