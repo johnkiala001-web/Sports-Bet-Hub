@@ -164,8 +164,8 @@ export default function Wallet() {
           <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg flex gap-3 items-start">
             <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
             <div>
-              <p className="font-bold text-sm text-green-500">Request Sent Successfully</p>
-              <p className="text-xs text-zinc-400 mt-0.5">Your balance will automatically refresh once M-Pesa confirms the confirmation log webhook.</p>
+              <p className="font-bold text-sm text-green-500">Deposit Initiated</p>
+              <p className="text-xs text-zinc-400 mt-0.5">success. Please check your phone to complete the deposit!</p>
             </div>
           </div>
         )}

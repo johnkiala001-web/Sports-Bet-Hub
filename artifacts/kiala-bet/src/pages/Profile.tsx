@@ -253,7 +253,7 @@ function DepositSection() {
       {step === "done" && (
         <div className="flex items-center gap-2 text-sm text-primary bg-primary/10 rounded-lg px-3 py-2.5">
           <span className="text-base">✓</span>
-          KES {amount.toLocaleString()} added to your wallet!
+          Deposit Initiated success. Please check your phone to complete the deposit!
         </div>
       )}
 
