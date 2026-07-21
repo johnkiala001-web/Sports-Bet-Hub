@@ -33,7 +33,7 @@ export default function AdminLogin() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <form onSubmit={handleLogin} className="bg-card p-6 rounded-xl border w-full max-w-sm space-y-4">
         <h2 className="text-xl font-black text-center">Admin Access</h2>
-        <Input type="email" placeholder="Admin Email" value={email} onChange={e => setEmail(e.target.value)} />
+        <Input type="text" placeholder="Admin Phone Number" value={email} onChange={e => setEmail(e.target.value)} />
         <Input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
         <Button type="submit" className="w-full">Sign In</Button>
       </form>
