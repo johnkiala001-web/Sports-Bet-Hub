@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useGetCurrentUser, getGetCurrentUserQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { User } from "@workspace/api-client-react";
 
 interface AuthContextType {
@@ -14,6 +15,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const [token, setToken] = useState<string | null>(() => {
     return localStorage.getItem("kialaToken");
   });
@@ -34,6 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     localStorage.removeItem("kialaToken");
     setToken(null);
+    queryClient.removeQueries({ queryKey: getGetCurrentUserQueryKey() });
   };
 
   return (
