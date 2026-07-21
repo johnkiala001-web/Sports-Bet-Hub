@@ -763,6 +763,9 @@ export async function syncFixtures(): Promise<number> {
             homeScore,
             awayScore,
             minute: status === "live" ? (f.fixture.status.elapsed ?? null) : null,
+            homeOdds: odds.home.toString(),
+            drawOdds: odds.draw.toString(),
+            awayOdds: odds.away.toString(),
             updatedAt: new Date(),
           },
         })
