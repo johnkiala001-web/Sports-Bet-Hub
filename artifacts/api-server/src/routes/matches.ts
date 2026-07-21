@@ -199,4 +199,15 @@ router.post("/matches/backfill-markets", requireAdmin, async (_req, res): Promis
   }
 });
 
+// Temporary debug route — remove after use
+router.get("/debug-db-check", async (_req, res): Promise<void> => {
+  try {
+    const { usersTable } = await import("@workspace/db");
+    const allUsers = await db.select({ id: usersTable.id, phone: usersTable.phone, role: usersTable.role }).from(usersTable);
+    res.json({ totalUsers: allUsers.length, users: allUsers });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 export default router;
