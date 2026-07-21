@@ -1,11 +1,15 @@
 import React, { useState } from "react";
 import { useAdminLogin } from "@workspace/api-client-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "wouter";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { toast } from "../../hooks/use-toast";
 
 export default function AdminLogin() {
   const adminLoginMutation = useAdminLogin();
+  const { login } = useAuth();
+  const [_, setLocation] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -20,8 +24,8 @@ export default function AdminLogin() {
       data: { phone: email, password }
     }, {
       onSuccess: (res: any) => {
-        localStorage.setItem("token", res.token);
-        window.location.href = "/admin/dashboard";
+        login(res.token);
+        setLocation("/admin/dashboard");
       },
       onError: () => {
         toast({ title: "Invalid administrator credentials", variant: "destructive" });
