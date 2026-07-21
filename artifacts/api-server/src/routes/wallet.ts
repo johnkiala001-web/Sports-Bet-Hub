@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { db, walletsTable, transactionsTable, paymentLogsTable } from "@workspace/db";
 import { DepositFundsBody, ListTransactionsQueryParams } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth";
@@ -145,7 +145,7 @@ router.get("/wallet/transactions", requireAuth, async (req, res): Promise<void> 
     .select()
     .from(transactionsTable)
     .where(eq(transactionsTable.userId, userId))
-    .orderBy(transactionsTable.createdAt)
+    .orderBy(desc(transactionsTable.createdAt))
     .limit(Number(limit))
     .offset(Number(offset));
 
