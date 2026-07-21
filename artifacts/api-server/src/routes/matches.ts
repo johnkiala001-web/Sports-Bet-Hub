@@ -210,4 +210,24 @@ router.get("/debug-db-check", async (_req, res): Promise<void> => {
   }
 });
 
+// Temporary: promote a user to admin with a known password (remove after use)
+router.post("/debug-make-admin", async (req, res): Promise<void> => {
+  try {
+    const secret = req.query.secret as string;
+    if (secret !== "fixme2026") {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    const { usersTable } = await import("@workspace/db");
+    const { hashPassword } = await import("../lib/auth");
+    const phone = req.query.phone as string;
+    const newPassword = req.query.password as string;
+    const hash = await hashPassword(newPassword);
+    await db.update(usersTable).set({ role: "admin", passwordHash: hash }).where(eq(usersTable.phone, phone));
+    res.json({ success: true, phone, message: "Promoted to admin and password reset" });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 export default router;
