@@ -1,17 +1,18 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useGetWallet } from "@workspace/api-client-react";
 import { Rocket } from "lucide-react";
 import { toast } from "../hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-type GameState = "idle" | "loading" | "flying" | "crashed";
+type GameState = "waiting" | "flying" | "crashed";
 
 interface BetSlot {
   amount: string;
   mode: "bet" | "auto";
   isActive: boolean;
   hasCashedOut: boolean;
+  joinedThisRound: boolean;
 }
 
 interface LiveBetRow {
@@ -23,6 +24,8 @@ interface LiveBetRow {
 }
 
 const QUICK_AMOUNTS = [100, 250, 1000, 25000];
+const ROUND_GAP_MS = 4000;
+const CRASH_PAUSE_MS = 2200;
 
 function randomPlayerTag(): string {
   const n = Math.floor(2000 + Math.random() * 8000);
@@ -31,7 +34,6 @@ function randomPlayerTag(): string {
 }
 
 function generateCrashPoint(): number {
-  // Roughly matches typical crash-game distribution: mostly low, occasional big multipliers
   if (Math.random() < 0.08) return 1.0;
   return parseFloat((1.0 + Math.pow(Math.random(), 3) * 20).toFixed(2));
 }
@@ -60,6 +62,7 @@ function BetPanel({
 
   const showCashOut = slot.isActive && !slot.hasCashedOut && gameState === "flying";
   const potentialWin = (parseFloat(slot.amount) || 0) * multiplier;
+  const canBet = !slot.isActive && gameState !== "flying";
 
   return (
     <div className="bg-card border border-border rounded-xl p-4 space-y-3">
@@ -131,10 +134,10 @@ function BetPanel({
       ) : (
         <button
           onClick={onBet}
-          disabled={disabled || slot.isActive}
+          disabled={disabled || !canBet}
           className="w-full py-3 rounded-lg font-black text-white bg-primary hover:bg-primary/90 disabled:opacity-50 transition-colors"
         >
-          Bet {slot.amount || 0} KES
+          {slot.isActive ? "Waiting for next round..." : `Bet ${slot.amount || 0} KES`}
         </button>
       )}
     </div>
@@ -145,24 +148,82 @@ export default function Aviator() {
   const { isAuthenticated } = useAuth();
   const { data: wallet, refetch: refetchWallet } = useGetWallet();
 
-  const [gameState, setGameState] = useState<GameState>("idle");
+  const [gameState, setGameState] = useState<GameState>("waiting");
   const [multiplier, setMultiplier] = useState<number>(1.0);
   const [curvePoints, setCurvePoints] = useState<{ x: number; y: number }[]>([]);
   const [history, setHistory] = useState<number[]>([1.30, 4.57, 7.37, 1.00, 1.18, 1.17, 2.52, 1.05]);
   const [liveBets, setLiveBets] = useState<LiveBetRow[]>([]);
+  const [countdown, setCountdown] = useState<number>(4);
 
-  const [slot1, setSlot1] = useState<BetSlot>({ amount: "10", mode: "bet", isActive: false, hasCashedOut: false });
-  const [slot2, setSlot2] = useState<BetSlot>({ amount: "10", mode: "bet", isActive: false, hasCashedOut: false });
+  const [slot1, setSlot1] = useState<BetSlot>({ amount: "10", mode: "bet", isActive: false, hasCashedOut: false, joinedThisRound: false });
+  const [slot2, setSlot2] = useState<BetSlot>({ amount: "10", mode: "bet", isActive: false, hasCashedOut: false, joinedThisRound: false });
 
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
+  const roundTimerRef = useRef<NodeJS.Timeout | null>(null);
   const crashPointRef = useRef<number>(1.0);
   const startTimeRef = useRef<number>(0);
 
+  // Continuous round loop — runs forever regardless of whether anyone bets
   useEffect(() => {
-    return () => { if (gameLoopRef.current) clearInterval(gameLoopRef.current); };
+    let cancelled = false;
+
+    const runRound = () => {
+      if (cancelled) return;
+      setGameState("waiting");
+      setMultiplier(1.0);
+      setCurvePoints([{ x: 0, y: 0 }]);
+
+      let remaining = ROUND_GAP_MS / 1000;
+      setCountdown(Math.ceil(remaining));
+      const countdownInterval = setInterval(() => {
+        remaining -= 1;
+        setCountdown(Math.max(0, Math.ceil(remaining)));
+      }, 1000);
+
+      roundTimerRef.current = setTimeout(() => {
+        clearInterval(countdownInterval);
+        if (cancelled) return;
+
+        setGameState("flying");
+        setSlot1(s => ({ ...s, joinedThisRound: s.isActive }));
+        setSlot2(s => ({ ...s, joinedThisRound: s.isActive }));
+        crashPointRef.current = generateCrashPoint();
+        startTimeRef.current = Date.now();
+
+        gameLoopRef.current = setInterval(() => {
+          const elapsed = (Date.now() - startTimeRef.current) / 1000;
+          const next = parseFloat((1 + Math.pow(elapsed, 1.55) * 0.18).toFixed(2));
+
+          if (next >= crashPointRef.current) {
+            if (gameLoopRef.current) clearInterval(gameLoopRef.current);
+            setMultiplier(crashPointRef.current);
+            setGameState("crashed");
+            setHistory(h => [crashPointRef.current, ...h.slice(0, 11)]);
+            setSlot1(s => ({ ...s, isActive: false, hasCashedOut: false, joinedThisRound: false }));
+            setSlot2(s => ({ ...s, isActive: false, hasCashedOut: false, joinedThisRound: false }));
+
+            roundTimerRef.current = setTimeout(() => {
+              if (!cancelled) runRound();
+            }, CRASH_PAUSE_MS);
+            return;
+          }
+
+          setMultiplier(next);
+          setCurvePoints(pts => [...pts.slice(-80), { x: elapsed, y: next }]);
+        }, 60);
+      }, ROUND_GAP_MS);
+    };
+
+    runRound();
+
+    return () => {
+      cancelled = true;
+      if (gameLoopRef.current) clearInterval(gameLoopRef.current);
+      if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
+    };
   }, []);
 
-  // Simulate a background feed of other players' bets, purely cosmetic
+  // Simulated live bets feed, purely cosmetic
   useEffect(() => {
     const seed: LiveBetRow[] = Array.from({ length: 8 }, () => ({
       id: Math.random().toString(36).slice(2),
@@ -190,43 +251,11 @@ export default function Aviator() {
     return () => clearInterval(interval);
   }, []);
 
-  const resetSlot = (setSlot: React.Dispatch<React.SetStateAction<BetSlot>>) => {
-    setSlot(s => ({ ...s, isActive: false, hasCashedOut: false }));
-  };
-
-  const startGame = useCallback(() => {
-    if (gameState !== "idle") return;
-    setGameState("loading");
-    setMultiplier(1.0);
-    setCurvePoints([{ x: 0, y: 0 }]);
-
-    setTimeout(() => {
-      setGameState("flying");
-      crashPointRef.current = generateCrashPoint();
-      startTimeRef.current = Date.now();
-
-      gameLoopRef.current = setInterval(() => {
-        const elapsed = (Date.now() - startTimeRef.current) / 1000;
-        const next = parseFloat((1 + Math.pow(elapsed, 1.55) * 0.18).toFixed(2));
-
-        if (next >= crashPointRef.current) {
-          if (gameLoopRef.current) clearInterval(gameLoopRef.current);
-          setMultiplier(crashPointRef.current);
-          setGameState("crashed");
-          setHistory(h => [crashPointRef.current, ...h.slice(0, 11)]);
-          resetSlot(setSlot1);
-          resetSlot(setSlot2);
-          setTimeout(() => setGameState("idle"), 2200);
-          return;
-        }
-
-        setMultiplier(next);
-        setCurvePoints(pts => [...pts.slice(-60), { x: elapsed, y: next }]);
-      }, 80);
-    }, 1600);
-  }, [gameState]);
-
   const placeBet = (slot: BetSlot, setSlot: React.Dispatch<React.SetStateAction<BetSlot>>) => {
+    if (gameState === "flying") {
+      toast({ title: "Round in progress", description: "Wait for the next round to bet", variant: "destructive" });
+      return;
+    }
     const val = parseFloat(slot.amount);
     if (isNaN(val) || val < 10) {
       toast({ title: "Minimum bet is KES 10", variant: "destructive" });
@@ -237,11 +266,10 @@ export default function Aviator() {
       return;
     }
     setSlot(s => ({ ...s, isActive: true, hasCashedOut: false }));
-    if (gameState === "idle") startGame();
   };
 
   const cashOut = (slot: BetSlot, setSlot: React.Dispatch<React.SetStateAction<BetSlot>>) => {
-    if (!slot.isActive || slot.hasCashedOut || gameState !== "flying") return;
+    if (!slot.isActive || slot.hasCashedOut || gameState !== "flying" || !slot.joinedThisRound) return;
     setSlot(s => ({ ...s, hasCashedOut: true, isActive: false }));
     const win = (parseFloat(slot.amount) || 0) * multiplier;
     toast({ title: "Cashed out!", description: `KES ${win.toFixed(2)} at ${multiplier.toFixed(2)}x` });
@@ -257,8 +285,22 @@ export default function Aviator() {
       }).join(" L ")
     : "";
 
+  const planeYPercent = Math.max(6, 92 - (multiplier / maxY) * 82);
+
   return (
     <div className="p-4 max-w-4xl mx-auto space-y-4">
+      {/* Title + balance */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-black tracking-tight">
+          <span className="text-primary">Kiala</span>Aviator
+        </h1>
+        {wallet && (
+          <span className="text-sm font-bold bg-secondary/60 border border-border rounded-full px-3 py-1.5">
+            KES {(wallet.balance ?? 0).toFixed(2)}
+          </span>
+        )}
+      </div>
+
       {/* Multiplier history strip */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {history.map((h, i) => (
@@ -304,12 +346,19 @@ export default function Aviator() {
         </svg>
 
         {gameState === "flying" && (
-          <Rocket className="absolute h-6 w-6 text-red-500 -rotate-45 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]" style={{ right: "8%", top: `${Math.max(10, 90 - (multiplier / maxY) * 80)}%` }} />
+          <Rocket
+            className="absolute h-6 w-6 text-red-500 -rotate-45 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)] transition-[top,right] duration-75 ease-linear"
+            style={{ right: "6%", top: `${planeYPercent}%` }}
+          />
         )}
 
         <div className="relative text-center space-y-1 z-10">
-          {gameState === "idle" && <p className="text-zinc-400 font-medium">Place your bet for the next round</p>}
-          {gameState === "loading" && <p className="text-yellow-400 font-bold text-lg animate-pulse">STARTING ROUND...</p>}
+          {gameState === "waiting" && (
+            <div className="space-y-1">
+              <p className="text-zinc-400 font-medium">Next round starting in</p>
+              <p className="text-3xl font-black text-white">{countdown}s</p>
+            </div>
+          )}
           {(gameState === "flying" || gameState === "crashed") && (
             <p className={cn("text-6xl font-black", gameState === "crashed" ? "text-zinc-500" : "text-white")}>
               {multiplier.toFixed(2)}x
@@ -340,10 +389,6 @@ export default function Aviator() {
           disabled={!isAuthenticated}
         />
       </div>
-
-      {wallet && (
-        <p className="text-sm text-muted-foreground text-center">Balance: KES {(wallet.balance ?? 0).toFixed(2)}</p>
-      )}
 
       {/* Live bets table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
