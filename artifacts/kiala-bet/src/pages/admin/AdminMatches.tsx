@@ -26,6 +26,81 @@ const matchSchema = z.object({
   isFeatured: z.boolean().optional(),
 });
 
+// ─── Score entry dialog ────────────────────────────────────────────────────────
+function ScoreDialog({ match }: { match: any }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const updateMutation = useUpdateMatch();
+  const [open, setOpen] = useState(false);
+
+  const [htHome, setHtHome] = useState(match.halftimeHomeScore?.toString() ?? "");
+  const [htAway, setHtAway] = useState(match.halftimeAwayScore?.toString() ?? "");
+  const [ftHome, setFtHome] = useState(match.homeScore?.toString() ?? "");
+  const [ftAway, setFtAway] = useState(match.awayScore?.toString() ?? "");
+
+  const handleSave = () => {
+    const ftH = parseInt(ftHome, 10);
+    const ftA = parseInt(ftAway, 10);
+    if (isNaN(ftH) || isNaN(ftA)) {
+      toast({ title: "Enter a valid fulltime score", variant: "destructive" });
+      return;
+    }
+
+    const data: Record<string, unknown> = {
+      homeScore: ftH,
+      awayScore: ftA,
+      status: "finished",
+    };
+    if (htHome !== "" && !isNaN(parseInt(htHome, 10))) data.halftimeHomeScore = parseInt(htHome, 10);
+    if (htAway !== "" && !isNaN(parseInt(htAway, 10))) data.halftimeAwayScore = parseInt(htAway, 10);
+
+    updateMutation.mutate({ matchId: match.id, data: data as any }, {
+      onSuccess: () => {
+        toast({ title: "Score saved — bets will be settled shortly" });
+        setOpen(false);
+        queryClient.invalidateQueries({ queryKey: getListMatchesQueryKey() });
+      },
+      onError: () => {
+        toast({ title: "Failed to save score", variant: "destructive" });
+      },
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">Set Score</Button>
+      </DialogTrigger>
+      <DialogContent className="bg-card border-border sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle>{match.homeTeam} vs {match.awayTeam}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm font-medium mb-2">Halftime Score</p>
+            <div className="flex items-center gap-2">
+              <Input type="number" className="bg-secondary" placeholder="Home" value={htHome} onChange={e => setHtHome(e.target.value)} />
+              <span className="text-muted-foreground">:</span>
+              <Input type="number" className="bg-secondary" placeholder="Away" value={htAway} onChange={e => setHtAway(e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <p className="text-sm font-medium mb-2">Fulltime Score</p>
+            <div className="flex items-center gap-2">
+              <Input type="number" className="bg-secondary" placeholder="Home" value={ftHome} onChange={e => setFtHome(e.target.value)} />
+              <span className="text-muted-foreground">:</span>
+              <Input type="number" className="bg-secondary" placeholder="Away" value={ftAway} onChange={e => setFtAway(e.target.value)} />
+            </div>
+          </div>
+          <Button onClick={handleSave} disabled={updateMutation.isPending} className="w-full font-bold">
+            {updateMutation.isPending ? "Saving..." : "Save & Finish Match"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function AdminMatches() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -50,12 +125,11 @@ export default function AdminMatches() {
   });
 
   const onSubmit = (values: z.infer<typeof matchSchema>) => {
-    // Ensure kickoff is in proper ISO format with timezone if it's from a datetime-local
     const formattedValues = {
       ...values,
       kickoff: new Date(values.kickoff).toISOString()
     };
-    
+
     createMutation.mutate({ data: formattedValues }, {
       onSuccess: () => {
         toast({ title: "Match created successfully" });
@@ -73,7 +147,7 @@ export default function AdminMatches() {
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold tracking-tight">Match Management</h1>
-        
+
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="font-bold">Add New Match</Button>
@@ -92,7 +166,7 @@ export default function AdminMatches() {
                     <FormItem><FormLabel>Away Team</FormLabel><FormControl><Input className="bg-secondary" {...field}/></FormControl></FormItem>
                   )} />
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="sport" render={({field}) => (
                     <FormItem>
@@ -158,7 +232,9 @@ export default function AdminMatches() {
                   <TableHead>Sport/League</TableHead>
                   <TableHead>Kickoff</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Score</TableHead>
                   <TableHead className="text-right">Odds (1X2)</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -176,15 +252,30 @@ export default function AdminMatches() {
                     </TableCell>
                     <TableCell>
                       <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${
-                        match.status === 'live' ? 'bg-destructive/20 text-destructive' : 
-                        match.status === 'finished' ? 'bg-secondary text-muted-foreground' : 
+                        match.status === 'live' ? 'bg-destructive/20 text-destructive' :
+                        match.status === 'finished' ? 'bg-secondary text-muted-foreground' :
                         'bg-primary/20 text-primary'
                       }`}>
                         {match.status}
                       </span>
                     </TableCell>
+                    <TableCell className="text-sm font-mono">
+                      {match.homeScore != null && match.awayScore != null ? (
+                        <div>
+                          <div>FT {match.homeScore}:{match.awayScore}</div>
+                          {match.halftimeHomeScore != null && match.halftimeAwayScore != null && (
+                            <div className="text-xs text-muted-foreground">HT {match.halftimeHomeScore}:{match.halftimeAwayScore}</div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right font-mono text-sm">
                       <span className="text-primary">{match.homeOdds.toFixed(2)}</span> / <span className="text-muted-foreground">{match.drawOdds.toFixed(2)}</span> / <span className="text-primary">{match.awayOdds.toFixed(2)}</span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <ScoreDialog match={match} />
                     </TableCell>
                   </TableRow>
                 ))}

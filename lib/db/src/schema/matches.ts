@@ -23,6 +23,8 @@ export const matchesTable = pgTable("matches", {
   kickoff: timestamp("kickoff", { withTimezone: true }).notNull(),
   homeScore: integer("home_score"),
   awayScore: integer("away_score"),
+  halftimeHomeScore: integer("halftime_home_score"),
+  halftimeAwayScore: integer("halftime_away_score"),
   minute: integer("minute"),
   homeOdds: numeric("home_odds", { precision: 8, scale: 2 }).notNull(),
   drawOdds: numeric("draw_odds", { precision: 8, scale: 2 }).notNull(),

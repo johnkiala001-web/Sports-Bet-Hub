@@ -656,6 +656,8 @@ export const UpdateMatchBody = zod.object({
   "status": zod.string().optional(),
   "homeScore": zod.number().nullish(),
   "awayScore": zod.number().nullish(),
+  "halftimeHomeScore": zod.number().nullish(),
+  "halftimeAwayScore": zod.number().nullish(),
   "minute": zod.number().nullish()
 })
 

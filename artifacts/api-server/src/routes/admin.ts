@@ -243,8 +243,15 @@ router.patch("/admin/matches/:matchId", requireAdmin, async (req, res): Promise<
   if (bodyP.data.homeScore != null) updates.homeScore = bodyP.data.homeScore;
   if (bodyP.data.awayScore != null) updates.awayScore = bodyP.data.awayScore;
   if (bodyP.data.minute != null) updates.minute = bodyP.data.minute;
+  if (bodyP.data.halftimeHomeScore != null) updates.halftimeHomeScore = bodyP.data.halftimeHomeScore;
+  if (bodyP.data.halftimeAwayScore != null) updates.halftimeAwayScore = bodyP.data.halftimeAwayScore;
 
   await db.update(matchesTable).set(updates).where(eq(matchesTable.id, paramsP.data.matchId));
+
+  if (bodyP.data.status === "finished" && bodyP.data.homeScore != null && bodyP.data.awayScore != null) {
+    const { runBetSettlement } = await import("../lib/betSettlement");
+    runBetSettlement().catch(() => {});
+  }
   res.json({ success: true });
 });
 

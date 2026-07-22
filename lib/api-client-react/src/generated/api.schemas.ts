@@ -97,6 +97,10 @@ export interface Match {
   /** @nullable */
   awayScore?: number | null;
   /** @nullable */
+  /** @nullable */
+  halftimeHomeScore?: number | null;
+  /** @nullable */
+  halftimeAwayScore?: number | null;
   minute?: number | null;
   homeOdds: number;
   drawOdds: number;
@@ -167,6 +171,10 @@ export interface MatchUpdate {
   homeScore?: number | null;
   /** @nullable */
   awayScore?: number | null;
+  /** @nullable */
+  halftimeHomeScore?: number | null;
+  /** @nullable */
+  halftimeAwayScore?: number | null;
   /** @nullable */
   minute?: number | null;
 }

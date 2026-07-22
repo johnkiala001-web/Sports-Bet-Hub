@@ -19,6 +19,8 @@ function formatMatch(m: typeof matchesTable.$inferSelect, marketsCount = 0) {
     kickoff: m.kickoff instanceof Date ? m.kickoff.toISOString() : m.kickoff,
     homeScore: m.homeScore,
     awayScore: m.awayScore,
+    halftimeHomeScore: m.halftimeHomeScore,
+    halftimeAwayScore: m.halftimeAwayScore,
     minute: m.minute,
     homeOdds: parseFloat(m.homeOdds as string),
     drawOdds: parseFloat(m.drawOdds as string),
