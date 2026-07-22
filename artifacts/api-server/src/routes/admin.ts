@@ -26,6 +26,7 @@ import {
   CreateJackpotBody,
 } from "@workspace/api-zod";
 import { comparePassword, signToken, requireAdmin } from "../lib/auth";
+import { generateMarketsForMatch } from "../lib/apiFootball";
 
 const router: IRouter = Router();
 
@@ -199,6 +200,8 @@ router.post("/admin/matches", requireAdmin, async (req, res): Promise<void> => {
     isFeatured: isFeatured ?? false,
     status: "upcoming",
   }).returning();
+
+  await generateMarketsForMatch(match.id, match.id, homeOdds, drawOdds, awayOdds);
 
   res.status(201).json({
     id: match.id,
