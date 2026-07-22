@@ -31,8 +31,22 @@ router.post("/wallet/withdraw", requireAuth, async (req, res): Promise<void> => 
   }
 
   const balance = parseFloat(wallet.balance as string);
+  if (balance <= 0) {
+    res.status(400).json({ error: "Insufficient balance" });
+    return;
+  }
   if (balance < amount) {
     res.status(400).json({ error: `Insufficient balance. Available: KES ${balance.toFixed(2)}` });
+    return;
+  }
+
+  const wins = await db
+    .select()
+    .from(transactionsTable)
+    .where(and(eq(transactionsTable.userId, userId), eq(transactionsTable.type, "win")))
+    .limit(1);
+  if (wins.length === 0) {
+    res.status(400).json({ error: "Please bet to withdraw" });
     return;
   }
 

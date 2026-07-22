@@ -273,8 +273,35 @@ function DepositSection() {
 
 // ─── Withdrawals section ──────────────────────────────────────────────────────
 function WithdrawSection() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [amount, setAmount] = useState<number>(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const adjust = (delta: number) => setAmount(prev => Math.max(0, prev + delta));
+
+  const handleWithdraw = async () => {
+    if (amount < 100) {
+      toast({ title: "Minimum withdrawal is KES 100", variant: "destructive" });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await customFetch<{ message?: string }>("/api/wallet/withdraw", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, method: "mpesa" }),
+      });
+      toast({ title: "Withdrawal is being processed!" });
+      setAmount(0);
+      queryClient.invalidateQueries({ queryKey: getGetWalletQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getListTransactionsQueryKey({ limit: 20 }) });
+    } catch (err: any) {
+      const msg = err?.data?.error || err?.message || "Withdrawal failed";
+      toast({ title: msg, variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="bg-card border border-border rounded-xl p-4 space-y-4">
@@ -297,8 +324,12 @@ function WithdrawSection() {
           <Plus className="h-4 w-4" />
         </button>
       </div>
-      <button className="w-full flex items-center justify-center gap-2 bg-secondary/60 hover:bg-secondary border border-border text-foreground font-bold py-3 rounded-lg transition-colors text-sm">
-        Withdraw to M-Pesa
+      <button
+        onClick={handleWithdraw}
+        disabled={isSubmitting}
+        className="w-full flex items-center justify-center gap-2 bg-secondary/60 hover:bg-secondary border border-border text-foreground font-bold py-3 rounded-lg transition-colors text-sm disabled:opacity-50"
+      >
+        {isSubmitting ? "Processing..." : "Withdraw to M-Pesa"}
       </button>
     </div>
   );
