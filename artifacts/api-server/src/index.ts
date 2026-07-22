@@ -4,6 +4,7 @@ import { startFixtureSync, startLiveSync } from "./lib/apiFootball";
 import { startFDFixtureSync } from "./lib/footballData";
 import { startBetSettlement } from "./lib/betSettlement";
 import { startMarketLock } from "./lib/marketLock";
+import { startWithdrawalTimeout } from "./lib/withdrawalTimeout";
 
 const rawPort = process.env["PORT"];
 
@@ -42,5 +43,7 @@ app.listen(port, (err) => {
 
   // Bet settlement: settle bets on finished matches (every 5 min)
   startBetSettlement(5 * 60_000);
+  // Withdrawal timeout: auto-revert pending withdrawals stuck too long (every 1 min)
+  startWithdrawalTimeout(60_000);
 });
 // trigger redeploy
