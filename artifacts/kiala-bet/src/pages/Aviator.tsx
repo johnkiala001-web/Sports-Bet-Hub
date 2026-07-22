@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useGetWallet } from "@workspace/api-client-react";
+import { useGetWallet, customFetch, getGetWalletQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Rocket } from "lucide-react";
 import { toast } from "../hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -147,6 +148,7 @@ function BetPanel({
 export default function Aviator() {
   const { isAuthenticated } = useAuth();
   const { data: wallet, refetch: refetchWallet } = useGetWallet();
+  const queryClient = useQueryClient();
 
   const [gameState, setGameState] = useState<GameState>("waiting");
   const [multiplier, setMultiplier] = useState<number>(1.0);
@@ -251,7 +253,7 @@ export default function Aviator() {
     return () => clearInterval(interval);
   }, []);
 
-  const placeBet = (slot: BetSlot, setSlot: React.Dispatch<React.SetStateAction<BetSlot>>) => {
+  const placeBet = async (slot: BetSlot, setSlot: React.Dispatch<React.SetStateAction<BetSlot>>) => {
     if (gameState === "flying") {
       toast({ title: "Round in progress", description: "Wait for the next round to bet", variant: "destructive" });
       return;
@@ -265,15 +267,34 @@ export default function Aviator() {
       toast({ title: "Insufficient balance", variant: "destructive" });
       return;
     }
-    setSlot(s => ({ ...s, isActive: true, hasCashedOut: false }));
+    try {
+      await customFetch("/api/aviator/bet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: val }),
+      });
+      setSlot(s => ({ ...s, isActive: true, hasCashedOut: false }));
+      queryClient.invalidateQueries({ queryKey: getGetWalletQueryKey() });
+    } catch {
+      toast({ title: "Failed to place bet", variant: "destructive" });
+    }
   };
-
-  const cashOut = (slot: BetSlot, setSlot: React.Dispatch<React.SetStateAction<BetSlot>>) => {
+  const cashOut = async (slot: BetSlot, setSlot: React.Dispatch<React.SetStateAction<BetSlot>>) => {
     if (!slot.isActive || slot.hasCashedOut || gameState !== "flying" || !slot.joinedThisRound) return;
     setSlot(s => ({ ...s, hasCashedOut: true, isActive: false }));
-    const win = (parseFloat(slot.amount) || 0) * multiplier;
-    toast({ title: "Cashed out!", description: `KES ${win.toFixed(2)} at ${multiplier.toFixed(2)}x` });
-    refetchWallet();
+    const val = parseFloat(slot.amount) || 0;
+    try {
+      await customFetch("/api/aviator/cashout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: val, multiplier }),
+      });
+      toast({ title: "Cashed out!", description: `KES ${(val * multiplier).toFixed(2)} at ${multiplier.toFixed(2)}x` });
+      queryClient.invalidateQueries({ queryKey: getGetWalletQueryKey() });
+      refetchWallet();
+    } catch {
+      toast({ title: "Cash out failed", variant: "destructive" });
+    }
   };
 
   const maxY = Math.max(2, multiplier * 1.15);

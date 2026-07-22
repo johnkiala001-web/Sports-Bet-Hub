@@ -9,6 +9,7 @@ import jackpotsRouter from "./jackpots";
 import usersRouter from "./users";
 import adminRouter from "./admin";
 import loyaltyRouter from "./loyalty";
+import aviatorRouter from "./aviator";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(jackpotsRouter);
 router.use(usersRouter);
 router.use(adminRouter);
 router.use(loyaltyRouter);
+router.use(aviatorRouter);
 
 export default router;
