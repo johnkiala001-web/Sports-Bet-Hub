@@ -744,9 +744,11 @@ components:
         minute:
           type: ["integer", "null"]
         halftimeHomeScore:
-          type: ["integer", "null"]
+          type: integer
+          nullable: true
         halftimeAwayScore:
-          type: ["integer", "null"]
+          type: integer
+          nullable: true
         homeOdds:
           type: number
         drawOdds:
@@ -786,9 +788,11 @@ components:
         minute:
           type: ["integer", "null"]
         halftimeHomeScore:
-          type: ["integer", "null"]
+          type: integer
+          nullable: true
         halftimeAwayScore:
-          type: ["integer", "null"]
+          type: integer
+          nullable: true
         markets:
           type: array
           items:
@@ -876,13 +880,11 @@ components:
         minute:
           type: ["integer", "null"]
         halftimeHomeScore:
-          type: ["integer", "null"]
+          type: integer
+          nullable: true
         halftimeAwayScore:
-          type: ["integer", "null"]
-        halftimeHomeScore:
-          type: ["integer", "null"]
-        halftimeAwayScore:
-          type: ["integer", "null"]
+          type: integer
+          nullable: true
 
     # BET SCHEMAS
     BetInput:
