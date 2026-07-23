@@ -117,7 +117,12 @@ export default function Wallet() {
     );
   }
 
-  const sortedTx = transactions ? [...transactions].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
+  const walletTxTypes = ["deposit", "withdrawal", "refund"];
+  const sortedTx = transactions
+    ? [...transactions]
+        .filter((t: any) => walletTxTypes.includes(t.type))
+        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    : [];
   const visibleTx = showAllTx ? sortedTx : sortedTx.slice(0, 1);
 
   return (
@@ -194,7 +199,7 @@ export default function Wallet() {
                 <StatusBadge status={tx.status} />
               </div>
               <p className={`font-bold ${tx.status === "completed" ? "text-green-500" : tx.status === "failed" ? "text-red-500" : "text-yellow-500"}`}>
-                {tx.type === "deposit" ? "+" : "-"}KES {parseFloat(tx.amount).toFixed(2)}
+                {tx.type === "withdrawal" ? "-" : "+"}KES {Math.abs(parseFloat(tx.amount)).toFixed(2)}
               </p>
             </div>
           )) : <p className="text-xs text-zinc-500 text-center py-4">No recent transactions found.</p>}
