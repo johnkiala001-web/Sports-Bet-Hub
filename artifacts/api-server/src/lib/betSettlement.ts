@@ -203,42 +203,117 @@ function determineSelectionResult(market: string, label: string, ctx: ScoreConte
 
   return "lost";
 }
-
 export function describeOutcome(
   market: string,
   label: string,
   homeScore: number | null,
   awayScore: number | null,
+  htHomeScore: number | null = null,
+  htAwayScore: number | null = null,
 ): string | null {
   if (homeScore == null || awayScore == null) return null;
-  const total = homeScore + awayScore;
-  switch (market.toUpperCase()) {
-    case "1X2":
-    case "MATCH_WINNER":
-    case "MATCH RESULT":
-      if (homeScore > awayScore) return "Home";
-      if (awayScore > homeScore) return "Away";
-      return "Draw";
-    case "OVER_UNDER":
-    case "GOALS_OVER_UNDER": {
-      const m = label.match(/^(Over|Under)\s+([\d.]+)$/i);
-      if (!m) return null;
-      const threshold = parseFloat(m[2]);
-      return total > threshold ? `Over ${threshold}` : `Under ${threshold}`;
-    }
-    case "BTTS":
-    case "BOTH_TEAMS_TO_SCORE":
-    case "BOTH TEAMS TO SCORE":
-      return homeScore > 0 && awayScore > 0 ? "Yes" : "No";
-    case "DOUBLE_CHANCE":
-    case "DOUBLE CHANCE": {
-      if (homeScore === awayScore) return "1X/X2";
-      if (homeScore > awayScore) return "1X";
-      return "X2";
-    }
-    default:
-      return null;
+  const home = homeScore;
+  const away = awayScore;
+  const total = home + away;
+  const name = market.trim();
+
+  if (name === "Match Result" || market.toUpperCase() === "1X2" || market.toUpperCase() === "MATCH_WINNER") {
+    if (home > away) return "1";
+    if (away > home) return "2";
+    return "X";
   }
+
+  if (name === "Double Chance" || market.toUpperCase() === "DOUBLE_CHANCE") {
+    if (home === away) return "1X/X2";
+    return home > away ? "1X" : "X2";
+  }
+
+  if (name === "Draw No Bet") {
+    if (home === away) return "Void (Draw)";
+    return home > away ? "Home" : "Away";
+  }
+
+  if (name === "Both Teams To Score" || market.toUpperCase() === "BTTS") {
+    return home > 0 && away > 0 ? "Yes" : "No";
+  }
+
+  if (name === "Correct Score") {
+    return `${home}-${away}`;
+  }
+
+  if (name === "Odd/Even Goals") {
+    return total % 2 === 1 ? "Odd" : "Even";
+  }
+
+  if (name === "Clean Sheet - Home") {
+    return away === 0 ? "Yes" : "No";
+  }
+  if (name === "Clean Sheet - Away") {
+    return home === 0 ? "Yes" : "No";
+  }
+  if (name === "Win To Nil - Home") {
+    return home > away && away === 0 ? "Yes" : "No";
+  }
+  if (name === "Win To Nil - Away") {
+    return away > home && home === 0 ? "Yes" : "No";
+  }
+
+  if (name === "Exact Goals") {
+    return total >= 5 ? "5+ Goals" : `${total} Goal${total === 1 ? "" : "s"}`;
+  }
+
+  if (name.startsWith("Multi Goals")) {
+    return `${total} total goal${total === 1 ? "" : "s"}`;
+  }
+
+  if (name === "European Handicap") {
+    const adjusted = home - away - 1;
+    if (adjusted > 0) return "Home -1";
+    if (adjusted === 0) return "Draw";
+    return "Away +1";
+  }
+
+  if (name === "Asian Handicap") {
+    return `Final score ${home}-${away}`;
+  }
+
+  if (name.startsWith("Over/Under")) {
+    return `${total} total goal${total === 1 ? "" : "s"}`;
+  }
+  if (name.startsWith("Home Team Over/Under")) {
+    return `Home scored ${home}`;
+  }
+  if (name.startsWith("Away Team Over/Under")) {
+    return `Away scored ${away}`;
+  }
+
+  if (htHomeScore != null && htAwayScore != null) {
+    if (name === "Half Time Result") {
+      if (htHomeScore > htAwayScore) return "1";
+      if (htAwayScore > htHomeScore) return "2";
+      return "X";
+    }
+    if (name === "HT/FT") {
+      const htLetter = htHomeScore > htAwayScore ? "1" : htHomeScore < htAwayScore ? "2" : "X";
+      const ftLetter = home > away ? "1" : home < away ? "2" : "X";
+      return `${htLetter}/${ftLetter}`;
+    }
+    const secondHalfHome = home - htHomeScore;
+    const secondHalfAway = away - htAwayScore;
+    if (name === "Second Half Result") {
+      if (secondHalfHome > secondHalfAway) return "1";
+      if (secondHalfAway > secondHalfHome) return "2";
+      return "X";
+    }
+    if (name.startsWith("2nd Half Over/Under")) {
+      return `${secondHalfHome + secondHalfAway} 2nd-half goals`;
+    }
+    if (name === "HT Over/Under 1.5") {
+      return `${htHomeScore + htAwayScore} HT goals`;
+    }
+  }
+
+  return null;
 }
 
 async function settleBetsForMatch(

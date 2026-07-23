@@ -38,7 +38,7 @@ async function formatBet(bet: typeof betsTable.$inferSelect, selections: (typeof
         matchStatus: match?.status ?? null,
         homeScore: match?.homeScore ?? null,
         awayScore: match?.awayScore ?? null,
-        outcome: describeOutcome(s.market, s.label, match?.homeScore ?? null, match?.awayScore ?? null),
+        outcome: describeOutcome(s.market, s.label, match?.homeScore ?? null, match?.awayScore ?? null, match?.halftimeHomeScore ?? null, match?.halftimeAwayScore ?? null),
       };
     }),
   };
