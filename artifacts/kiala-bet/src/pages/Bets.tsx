@@ -3,7 +3,7 @@ import { useListBets, getListBetsQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronDown, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { ChevronDown, CheckCircle2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type FilterType = "open" | "all" | "won" | "lost";
@@ -13,13 +13,29 @@ function betCode(id: number): string {
   return "#" + Array.from({ length: 6 }, (_, i) => chars[(id * 31 + i * 17) % chars.length]).join("");
 }
 
-function formatBetDate(iso: string): string {
+function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+function formatPlacedAt(iso: string): string {
+  const d = new Date(iso);
+  let h = d.getHours();
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  const m = String(d.getMinutes()).padStart(2, "0");
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  return `${h}:${m}${ampm} on ${ordinal(d.getDate())} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function formatKickoff(iso: string): string {
   const d = new Date(iso);
   const day = String(d.getDate()).padStart(2, "0");
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const h = String(d.getHours()).padStart(2, "0");
   const m = String(d.getMinutes()).padStart(2, "0");
-  return `${day}/${month}, ${h}:${m}`;
+  return `Starts at ${day}/${month}, ${h}:${m}`;
 }
 
 const FILTERS: { label: string; value: FilterType }[] = [
@@ -43,7 +59,15 @@ export default function Bets() {
   }, [isAuthenticated, authLoading, setLocation]);
 
   const { data: bets, isLoading } = useListBets({}, {
-    query: { enabled: isAuthenticated, queryKey: getListBetsQueryKey({}) }
+    query: {
+      enabled: isAuthenticated,
+      queryKey: getListBetsQueryKey({}),
+      refetchInterval: (query) => {
+        const list = query.state.data as any[] | undefined;
+        const hasPending = list?.some((b) => b.status === "pending");
+        return hasPending ? 5000 : false;
+      },
+    }
   });
 
   if (authLoading || !isAuthenticated) return null;
@@ -58,18 +82,10 @@ export default function Bets() {
     return bets;
   })();
 
-  const statusConfig = {
-    pending: { label: "Open", color: "text-primary", icon: Clock },
-    won: { label: "Won", color: "text-primary", icon: CheckCircle2 },
-    lost: { label: "Lost", color: "text-destructive", icon: XCircle },
-    cashed_out: { label: "Cashed Out", color: "text-yellow-400", icon: CheckCircle2 },
-  };
-
   return (
     <div className="space-y-4 animate-in fade-in duration-300 max-w-2xl mx-auto">
       <p className="text-xs text-center text-muted-foreground">Last updated at {lastUpdated}</p>
 
-      {/* Filter selector — Betika style */}
       <div className="relative">
         <button
           onClick={() => setFilterOpen(!filterOpen)}
@@ -99,7 +115,6 @@ export default function Bets() {
         )}
       </div>
 
-      {/* Bets list */}
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full rounded-xl bg-card" />)}
@@ -114,97 +129,118 @@ export default function Bets() {
       ) : (
         <div className="space-y-3">
           {[...filtered].reverse().map(bet => {
-            const cfg = statusConfig[bet.status as keyof typeof statusConfig] ?? statusConfig.pending;
-            const StatusIcon = cfg.icon;
             const isExpanded = expandedBet === bet.id;
+            const resolvedCount = bet.selections.filter((s: any) => s.result !== "pending").length;
+            const totalCount = bet.selections.length;
+
+            const statusLabel =
+              bet.status === "won" ? "Won" :
+              bet.status === "lost" ? "Lost" :
+              bet.status === "cashed_out" ? "Cashed Out" :
+              `Open (${resolvedCount}/${totalCount})`;
+
+            const statusColor =
+              bet.status === "won" ? "text-green-500" :
+              bet.status === "lost" ? "text-red-500" :
+              bet.status === "cashed_out" ? "text-yellow-400" :
+              "text-primary";
+
+            const wonCount = bet.selections.filter((s: any) => s.result === "won").length;
+            const lostCount = bet.selections.filter((s: any) => s.result === "lost").length;
+            const pendingCount = bet.selections.filter((s: any) => s.result === "pending").length;
 
             return (
               <div key={bet.id} className="bg-card border border-border rounded-xl overflow-hidden">
-                {/* Bet card header */}
                 <button
                   className="w-full text-left p-4"
                   onClick={() => setExpandedBet(isExpanded ? null : bet.id)}
                 >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-black text-sm tracking-wider">{betCode(bet.id)}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{formatBetDate(bet.createdAt)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-sm">KES {bet.stake.toFixed(2)}</p>
-                      <p className={cn("text-sm font-bold", cfg.color)}>{cfg.label}</p>
-                    </div>
-                  </div>
+                  <p className="font-black text-sm tracking-wider">{betCode(bet.id)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Prematch Bet placed at {formatPlacedAt(bet.createdAt)}
+                  </p>
+                  <p className={cn("text-sm font-bold mt-1", statusColor)}>{statusLabel}</p>
 
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+                  <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-border/50">
                     <div>
-                      <span className="text-xs text-muted-foreground">
-                        {bet.selections.length} selection{bet.selections.length > 1 ? "s" : ""} · Odds {bet.totalOdds.toFixed(2)}
-                      </span>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold">Amount</p>
+                      <p className="font-bold text-sm">KES {bet.stake.toFixed(2)}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {bet.status === "pending" && (
-                        <span className="text-xs text-muted-foreground font-medium">
-                          Potential: <span className="text-foreground font-bold">KES {bet.potentialWin.toFixed(2)}</span>
-                        </span>
-                      )}
-                      {bet.status === "won" && bet.actualWin != null && (
-                        <span className="text-xs font-bold text-primary">
-                          Won: KES {Number(bet.actualWin).toFixed(2)}
-                        </span>
-                      )}
-                      <StatusIcon className={cn("h-4 w-4", cfg.color)} />
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold">
+                        {bet.status === "won" ? "Payout" : "Possible Payout"}
+                      </p>
+                      <p className="font-bold text-sm">
+                        KES {bet.status === "won" && bet.actualWin != null
+                          ? Number(bet.actualWin).toFixed(2)
+                          : bet.potentialWin.toFixed(2)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold">W/L/T</p>
+                      <p className="font-bold text-sm">{wonCount}/{lostCount}/{pendingCount}</p>
                     </div>
                   </div>
                 </button>
 
-                {/* Expanded selections */}
                 {isExpanded && (
                   <div className="border-t border-border bg-secondary/20 p-4 space-y-3">
-                    {bet.selections.map(sel => {
-                      const selStatus = sel.result === "won"
-                        ? "won"
+                    {bet.selections.map((sel: any) => {
+                      const hasScore = sel.homeScore != null && sel.awayScore != null;
+                      const isLive = sel.matchStatus === "live";
+                      const isFinished = sel.matchStatus === "finished";
+
+                      const middleLabel = hasScore
+                        ? `${sel.homeScore}:${sel.awayScore}`
+                        : "vs";
+
+                      const timeLabel = isFinished
+                        ? "FT Results"
+                        : isLive
+                          ? "Started"
+                          : sel.kickoff
+                            ? formatKickoff(sel.kickoff)
+                            : "";
+
+                      const resultIcon = sel.result === "won"
+                        ? <CheckCircle2 className="h-4 w-4 text-green-500" />
                         : sel.result === "lost"
-                          ? "lost"
-                          : "pending";
-                      const selCfg = statusConfig[selStatus as keyof typeof statusConfig];
-                      const SelIcon = selCfg.icon;
+                          ? <XCircle className="h-4 w-4 text-red-500" />
+                          : null;
 
                       return (
-                        <div key={sel.id} className="flex items-start justify-between text-sm">
-                          <div className="min-w-0 flex-1 pr-3">
-                            <p className="font-bold text-xs truncate">{sel.homeTeam} vs {sel.awayTeam}</p>
-                            <p className="text-muted-foreground text-xs">{sel.market}</p>
-                            <p className="font-semibold mt-0.5">{sel.label}</p>
+                        <div key={sel.id} className="text-sm bg-card/50 rounded-lg p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="font-bold text-xs truncate">{sel.homeTeam}</p>
+                            <span className="text-xs font-black bg-secondary rounded-full px-2 py-0.5 mx-2 shrink-0">
+                              {middleLabel}
+                            </span>
+                            <p className="font-bold text-xs truncate text-right">{sel.awayTeam}</p>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="font-black text-primary">{sel.odds.toFixed(2)}</span>
-                            <SelIcon className={cn("h-4 w-4", selCfg.color)} />
+
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">{sel.market}</span>
+                            <span className="text-muted-foreground">{timeLabel}</span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs">
+                            <div>
+                              <span className="text-muted-foreground">Pick: </span>
+                              <span className="font-semibold">{sel.label}</span>
+                              <span className="font-black text-primary ml-1">({sel.odds.toFixed(2)})</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs pt-1 border-t border-border/30">
+                            <div>
+                              <span className="text-muted-foreground">Outcome: </span>
+                              <span className="font-semibold">{isFinished && sel.outcome ? sel.outcome : ""}</span>
+                            </div>
+                            {resultIcon}
                           </div>
                         </div>
                       );
                     })}
-
-                    <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-border/50">
-                      <div className="text-center">
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold">Stake</p>
-                        <p className="font-bold text-sm">KES {bet.stake.toFixed(2)}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold">Odds</p>
-                        <p className="font-bold text-sm">{bet.totalOdds.toFixed(2)}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold">
-                          {bet.status === "won" ? "Payout" : "Possible"}
-                        </p>
-                        <p className={cn("font-black text-sm", bet.status === "won" ? "text-primary" : "")}>
-                          KES {bet.status === "won" && bet.actualWin != null
-                            ? Number(bet.actualWin).toFixed(2)
-                            : bet.potentialWin.toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>

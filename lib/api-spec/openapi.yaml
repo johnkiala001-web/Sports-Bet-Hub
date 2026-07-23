@@ -743,6 +743,10 @@ components:
           type: ["integer", "null"]
         minute:
           type: ["integer", "null"]
+        halftimeHomeScore:
+          type: ["integer", "null"]
+        halftimeAwayScore:
+          type: ["integer", "null"]
         homeOdds:
           type: number
         drawOdds:
@@ -780,6 +784,10 @@ components:
         awayScore:
           type: ["integer", "null"]
         minute:
+          type: ["integer", "null"]
+        halftimeHomeScore:
+          type: ["integer", "null"]
+        halftimeAwayScore:
           type: ["integer", "null"]
         markets:
           type: array
@@ -867,6 +875,14 @@ components:
           type: ["integer", "null"]
         minute:
           type: ["integer", "null"]
+        halftimeHomeScore:
+          type: ["integer", "null"]
+        halftimeAwayScore:
+          type: ["integer", "null"]
+        halftimeHomeScore:
+          type: ["integer", "null"]
+        halftimeAwayScore:
+          type: ["integer", "null"]
 
     # BET SCHEMAS
     BetInput:
@@ -941,6 +957,21 @@ components:
         result:
           type: string
           enum: [pending, won, lost]
+        kickoff:
+          type: string
+          nullable: true
+        matchStatus:
+          type: string
+          nullable: true
+        homeScore:
+          type: integer
+          nullable: true
+        awayScore:
+          type: integer
+          nullable: true
+        outcome:
+          type: string
+          nullable: true
 
     BetSummary:
       type: object

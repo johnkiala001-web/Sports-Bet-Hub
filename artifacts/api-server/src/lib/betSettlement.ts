@@ -49,6 +49,41 @@ function determineSelectionResult(
   }
 }
 
+export function describeOutcome(
+  market: string,
+  label: string,
+  homeScore: number | null,
+  awayScore: number | null,
+): string | null {
+  if (homeScore == null || awayScore == null) return null;
+  const total = homeScore + awayScore;
+  switch (market.toUpperCase()) {
+    case "1X2":
+    case "MATCH_WINNER":
+      if (homeScore > awayScore) return "Home";
+      if (awayScore > homeScore) return "Away";
+      return "Draw";
+    case "OVER_UNDER":
+    case "GOALS_OVER_UNDER": {
+      const m = label.match(/^(Over|Under)\s+([\d.]+)$/i);
+      if (!m) return null;
+      const threshold = parseFloat(m[2]);
+      return total > threshold ? `Over ${threshold}` : `Under ${threshold}`;
+    }
+    case "BTTS":
+    case "BOTH_TEAMS_TO_SCORE":
+      return homeScore > 0 && awayScore > 0 ? "Yes" : "No";
+    case "DOUBLE_CHANCE": {
+      if (homeScore >= awayScore && awayScore >= homeScore) return "1X/X2";
+      if (homeScore > awayScore) return "1X";
+      if (awayScore > homeScore) return "X2";
+      return "1X/X2";
+    }
+    default:
+      return null;
+  }
+}
+
 async function settleBetsForMatch(matchId: number, homeScore: number, awayScore: number) {
   const selections = await db
     .select()

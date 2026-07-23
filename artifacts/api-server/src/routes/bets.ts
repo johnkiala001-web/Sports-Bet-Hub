@@ -1,12 +1,19 @@
 import { Router, type IRouter } from "express";
-import { eq, and, count, sum } from "drizzle-orm";
+import { eq, and, count, sum, inArray } from "drizzle-orm";
 import { db, betsTable, betSelectionsTable, walletsTable, transactionsTable, matchesTable } from "@workspace/db";
+import { describeOutcome } from "../lib/betSettlement";
 import { ListBetsQueryParams, PlaceBetBody } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth";
 
 const router: IRouter = Router();
 
-function formatBet(bet: typeof betsTable.$inferSelect, selections: (typeof betSelectionsTable.$inferSelect)[]) {
+async function formatBet(bet: typeof betsTable.$inferSelect, selections: (typeof betSelectionsTable.$inferSelect)[]) {
+  const matchIds = [...new Set(selections.map((s) => s.matchId))];
+  const matches = matchIds.length
+    ? await db.select().from(matchesTable).where(inArray(matchesTable.id, matchIds))
+    : [];
+  const matchById = new Map(matches.map((m) => [m.id, m]));
+
   return {
     id: bet.id,
     stake: parseFloat(bet.stake as string),
@@ -16,16 +23,24 @@ function formatBet(bet: typeof betsTable.$inferSelect, selections: (typeof betSe
     status: bet.status,
     type: bet.type,
     createdAt: bet.createdAt instanceof Date ? bet.createdAt.toISOString() : bet.createdAt,
-    selections: selections.map((s) => ({
-      id: s.id,
-      matchId: s.matchId,
-      homeTeam: s.homeTeam,
-      awayTeam: s.awayTeam,
-      market: s.market,
-      label: s.label,
-      odds: parseFloat(s.odds as string),
-      result: s.result,
-    })),
+    selections: selections.map((s) => {
+      const match = matchById.get(s.matchId);
+      return {
+        id: s.id,
+        matchId: s.matchId,
+        homeTeam: s.homeTeam,
+        awayTeam: s.awayTeam,
+        market: s.market,
+        label: s.label,
+        odds: parseFloat(s.odds as string),
+        result: s.result,
+        kickoff: match?.kickoff instanceof Date ? match.kickoff.toISOString() : match?.kickoff ?? null,
+        matchStatus: match?.status ?? null,
+        homeScore: match?.homeScore ?? null,
+        awayScore: match?.awayScore ?? null,
+        outcome: describeOutcome(s.market, s.label, match?.homeScore ?? null, match?.awayScore ?? null),
+      };
+    }),
   };
 }
 
@@ -133,7 +148,7 @@ router.post("/bets", requireAuth, async (req, res): Promise<void> => {
   await awardLoyaltyPoints(userId, stake, bet.id).catch(() => {});
   await trackWageringProgress(userId, stake).catch(() => {});
 
-  res.status(201).json(formatBet(bet, allSelections));
+  res.status(201).json(await formatBet(bet, allSelections));
 });
 
 router.post("/bets/:betId/cashout", requireAuth, async (req, res): Promise<void> => {
@@ -168,7 +183,7 @@ router.post("/bets/:betId/cashout", requireAuth, async (req, res): Promise<void>
 
   const [updatedBet] = await db.select().from(betsTable).where(eq(betsTable.id, betId));
   const selections = await db.select().from(betSelectionsTable).where(eq(betSelectionsTable.betId, betId));
-  res.json(formatBet(updatedBet, selections));
+  res.json(await formatBet(updatedBet, selections));
 });
 
 router.get("/bets/summary", requireAuth, async (req, res): Promise<void> => {
