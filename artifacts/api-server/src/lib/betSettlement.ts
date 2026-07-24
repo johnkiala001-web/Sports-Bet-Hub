@@ -150,8 +150,37 @@ function determineSelectionResult(market: string, label: string, ctx: ScoreConte
     return ou ? resultFromTotal(away, ou) : "lost";
   }
 
+  if (name === "1X2 & Both Teams To Score") {
+    const parts = label.split(" & ");
+    if (parts.length !== 2) return "lost";
+    const resOk = matchResultLabel(parts[0], home, away) === "won";
+    const btts = home > 0 && away > 0;
+    const bttsOk = parts[1] === "Yes" ? btts : !btts;
+    return resOk && bttsOk ? "won" : "lost";
+  }
+
+  if (name === "Total & Both Teams To Score") {
+    const parts = label.split(" & ");
+    if (parts.length !== 2) return "lost";
+    const ou = parseOverUnder(parts[0]);
+    const ouOk = ou ? resultFromTotal(total, ou) === "won" : false;
+    const btts = home > 0 && away > 0;
+    const bttsOk = parts[1] === "Yes" ? btts : !btts;
+    return ouOk && bttsOk ? "won" : "lost";
+  }
+
   // ── Markets requiring halftime score ─────────────────────────────────────
   if (htHomeScore == null || htAwayScore == null) {
+    if (
+      name === "1st Half - 1X2 & Total" ||
+      name === "1st/2nd Half Both Teams To Score" ||
+      name === "1st Half - Correct Score" ||
+      name === "2nd Half - 1X2 & Both Teams To Score" ||
+      name === "2nd Half - 1X2 & Total" ||
+      name === "Halftime/Fulltime & Total"
+    ) {
+      return "void";
+    }
     if (
       name === "Half Time Result" ||
       name === "HT/FT" ||
@@ -182,6 +211,58 @@ function determineSelectionResult(market: string, label: string, ctx: ScoreConte
     if (name === "HT Over/Under 1.5") {
       const ou = parseOverUnder(label);
       return ou ? resultFromTotal(htHomeScore + htAwayScore, ou) : "lost";
+    }
+
+    if (name === "1st Half - 1X2 & Total") {
+      const parts = label.split(" & ");
+      if (parts.length !== 2) return "lost";
+      const resOk = matchResultLabel(parts[0], htHomeScore, htAwayScore) === "won";
+      const ou = parseOverUnder(parts[1]);
+      const ouOk = ou ? resultFromTotal(htHomeScore + htAwayScore, ou) === "won" : false;
+      return resOk && ouOk ? "won" : "lost";
+    }
+
+    if (name === "1st/2nd Half Both Teams To Score") {
+      const parts = label.split("/");
+      if (parts.length !== 2) return "lost";
+      const bttsFirst = htHomeScore > 0 && htAwayScore > 0;
+      const bttsSecond = secondHalfHome > 0 && secondHalfAway > 0;
+      const firstOk = parts[0] === "Yes" ? bttsFirst : !bttsFirst;
+      const secondOk = parts[1] === "Yes" ? bttsSecond : !bttsSecond;
+      return firstOk && secondOk ? "won" : "lost";
+    }
+
+    if (name === "1st Half - Correct Score") {
+      return label === `${htHomeScore}-${htAwayScore}` ? "won" : "lost";
+    }
+
+    if (name === "2nd Half - 1X2 & Both Teams To Score") {
+      const parts = label.split(" & ");
+      if (parts.length !== 2) return "lost";
+      const resOk = matchResultLabel(parts[0], secondHalfHome, secondHalfAway) === "won";
+      const btts = secondHalfHome > 0 && secondHalfAway > 0;
+      const bttsOk = parts[1] === "Yes" ? btts : !btts;
+      return resOk && bttsOk ? "won" : "lost";
+    }
+
+    if (name === "2nd Half - 1X2 & Total") {
+      const parts = label.split(" & ");
+      if (parts.length !== 2) return "lost";
+      const resOk = matchResultLabel(parts[0], secondHalfHome, secondHalfAway) === "won";
+      const ou = parseOverUnder(parts[1]);
+      const ouOk = ou ? resultFromTotal(secondHalfHome + secondHalfAway, ou) === "won" : false;
+      return resOk && ouOk ? "won" : "lost";
+    }
+
+    if (name === "Halftime/Fulltime & Total") {
+      const parts = label.split(" & ");
+      if (parts.length !== 2) return "lost";
+      const htLetter = htHomeScore > htAwayScore ? "1" : htHomeScore < htAwayScore ? "2" : "X";
+      const ftLetter = home > away ? "1" : home < away ? "2" : "X";
+      const htftOk = parts[0] === `${htLetter}/${ftLetter}`;
+      const ou = parseOverUnder(parts[1]);
+      const ouOk = ou ? resultFromTotal(total, ou) === "won" : false;
+      return htftOk && ouOk ? "won" : "lost";
     }
   }
 

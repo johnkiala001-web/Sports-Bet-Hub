@@ -506,6 +506,124 @@ function buildMarkets(fixtureId: number, h: number, d: number, a: number) {
     { label: "No",  odds: prob2odds(1 - penP, m, 1).toFixed(2) },
   ]});
 
+  // ── Combination markets ──────────────────────────────────────────────────
+
+  // 41. 1st Half - 1X2 & Total
+  {
+    const htHomeP = nph * 0.85 + rnd(fixtureId, m, 0) * 0.05;
+    const htAwayP = npa * 0.85 + rnd(fixtureId, m, 1) * 0.05;
+    const htDrawP = Math.max(0.05, 1 - htHomeP - htAwayP);
+    const htOverP = 0.35 + rnd(fixtureId, m, 2) * 0.1;
+    const combos: Array<[string, number]> = [["1", htHomeP], ["X", htDrawP], ["2", htAwayP]];
+    const sels = [];
+    let si = 0;
+    for (const [res, p] of combos) {
+      sels.push({ label: `${res} & Over 0.5`, odds: prob2odds(p * htOverP, m, si++).toFixed(2) });
+      sels.push({ label: `${res} & Under 0.5`, odds: prob2odds(p * (1 - htOverP), m, si++).toFixed(2) });
+    }
+    markets.push({ name: "1st Half - 1X2 & Total", selections: sels });
+  }
+  m++;
+
+  // 42. 1X2 & Both Teams To Score
+  {
+    const combos: Array<[string, number]> = [["1", nph], ["X", npd], ["2", npa]];
+    const sels = [];
+    let si = 0;
+    for (const [res, p] of combos) {
+      sels.push({ label: `${res} & Yes`, odds: prob2odds(p * bttsP, m, si++).toFixed(2) });
+      sels.push({ label: `${res} & No`, odds: prob2odds(p * (1 - bttsP), m, si++).toFixed(2) });
+    }
+    markets.push({ name: "1X2 & Both Teams To Score", selections: sels });
+  }
+  m++;
+
+  // 43. Total & Both Teams To Score
+  {
+    const overP = 0.52 + rnd(fixtureId, m, 0) * 0.1;
+    const sels = [
+      { label: "Over 2.5 & Yes", odds: prob2odds(overP * bttsP, m, 1).toFixed(2) },
+      { label: "Over 2.5 & No", odds: prob2odds(overP * (1 - bttsP), m, 2).toFixed(2) },
+      { label: "Under 2.5 & Yes", odds: prob2odds((1 - overP) * bttsP, m, 3).toFixed(2) },
+      { label: "Under 2.5 & No", odds: prob2odds((1 - overP) * (1 - bttsP), m, 4).toFixed(2) },
+    ];
+    markets.push({ name: "Total & Both Teams To Score", selections: sels });
+  }
+  m++;
+
+  // 44. 1st/2nd Half Both Teams To Score
+  {
+    const bttsFirstP = bttsP * 0.5 + rnd(fixtureId, m, 0) * 0.05;
+    const bttsSecondP = bttsP * 0.75 + rnd(fixtureId, m, 1) * 0.05;
+    const sels = [
+      { label: "Yes/Yes", odds: prob2odds(bttsFirstP * bttsSecondP, m, 2).toFixed(2) },
+      { label: "Yes/No", odds: prob2odds(bttsFirstP * (1 - bttsSecondP), m, 3).toFixed(2) },
+      { label: "No/Yes", odds: prob2odds((1 - bttsFirstP) * bttsSecondP, m, 4).toFixed(2) },
+      { label: "No/No", odds: prob2odds((1 - bttsFirstP) * (1 - bttsSecondP), m, 5).toFixed(2) },
+    ];
+    markets.push({ name: "1st/2nd Half Both Teams To Score", selections: sels });
+  }
+  m++;
+
+  // 45. 1st Half - Correct Score
+  {
+    const htScores = ["0-0","1-0","0-1","1-1","2-0","0-2","2-1"];
+    const htScoreBaseOdds = [3.2, 5.5, 6.5, 6.0, 12.0, 15.0, 15.0];
+    markets.push({ name: "1st Half - Correct Score", selections: htScores.map((s, i) => ({
+      label: s,
+      odds: o(htScoreBaseOdds[i] * (0.85 + rnd(fixtureId, m, i) * 0.3)),
+    }))});
+  }
+  m++;
+
+  // 46. 2nd Half - 1X2 & Both Teams To Score
+  {
+    const shHomeP = nph * 1.05 + rnd(fixtureId, m, 0) * 0.03;
+    const shAwayP = npa * 1.05 + rnd(fixtureId, m, 1) * 0.03;
+    const shDrawP = Math.max(0.05, 1 - shHomeP - shAwayP);
+    const bttsSecondP = bttsP * 0.75 + rnd(fixtureId, m, 2) * 0.05;
+    const combos: Array<[string, number]> = [["1", shHomeP], ["X", shDrawP], ["2", shAwayP]];
+    const sels = [];
+    let si = 0;
+    for (const [res, p] of combos) {
+      sels.push({ label: `${res} & Yes`, odds: prob2odds(p * bttsSecondP, m, si++).toFixed(2) });
+      sels.push({ label: `${res} & No`, odds: prob2odds(p * (1 - bttsSecondP), m, si++).toFixed(2) });
+    }
+    markets.push({ name: "2nd Half - 1X2 & Both Teams To Score", selections: sels });
+  }
+  m++;
+
+  // 47. 2nd Half - 1X2 & Total
+  {
+    const shHomeP = nph * 1.05 + rnd(fixtureId, m, 0) * 0.03;
+    const shAwayP = npa * 1.05 + rnd(fixtureId, m, 1) * 0.03;
+    const shDrawP = Math.max(0.05, 1 - shHomeP - shAwayP);
+    const shOverP = 0.42 + rnd(fixtureId, m, 2) * 0.08;
+    const combos: Array<[string, number]> = [["1", shHomeP], ["X", shDrawP], ["2", shAwayP]];
+    const sels = [];
+    let si = 0;
+    for (const [res, p] of combos) {
+      sels.push({ label: `${res} & Over 0.5`, odds: prob2odds(p * shOverP, m, si++).toFixed(2) });
+      sels.push({ label: `${res} & Under 0.5`, odds: prob2odds(p * (1 - shOverP), m, si++).toFixed(2) });
+    }
+    markets.push({ name: "2nd Half - 1X2 & Total", selections: sels });
+  }
+  m++;
+
+  // 48. Halftime/Fulltime & Total
+  {
+    const overP = 0.52 + rnd(fixtureId, m, 0) * 0.1;
+    const sels = [];
+    let si = 1;
+    for (let i = 0; i < htftLabels.length; i++) {
+      const base = htftBase[i] + rnd(fixtureId, m, i) * 0.04;
+      sels.push({ label: `${htftLabels[i]} & Over 2.5`, odds: prob2odds(base * overP, m, si++).toFixed(2) });
+      sels.push({ label: `${htftLabels[i]} & Under 2.5`, odds: prob2odds(base * (1 - overP), m, si++).toFixed(2) });
+    }
+    markets.push({ name: "Halftime/Fulltime & Total", selections: sels });
+  }
+  m++;
+
   return markets;
 }
 
